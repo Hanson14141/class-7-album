@@ -1,0 +1,19 @@
+{
+  "envId": "class7-memory-d0gcpjaqu47530c54",
+  "functionRoot": "functions",
+  "functions": [{
+    "name": "class7-photo-api",
+      "type": "HTTP",
+      "instanceConcurrencyConfig": {"maxConcurrency": 10, "dynamicEnabled": "FALSE"},
+    "timeout": 20,
+    "memorySize": 256,
+    "runtime": "Nodejs20.19",
+    "installDependency": true,
+    "envVariables": {
+      "CLASS7_ENV_ID": "class7-memory-d0gcpjaqu47530c54",
+      "CLASS7_REGION": "ap-shanghai",
+      "CLASS7_STORAGE_BUCKET": "class7-test",
+      "CLASS7_ORIGIN": "https://class7-memory-d0gcpjaqu47530c54-1509361747.ap-shanghai.app.tcloudbase.com"
+    }
+  }]
+}

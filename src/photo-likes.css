@@ -1,0 +1,9 @@
+.photo-like-row{margin-top:16px}
+.photo-like-button{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:7px 12px;border:1px solid var(--line);color:var(--ink);background:var(--bg);font-size:12px;line-height:1.5;touch-action:manipulation}
+.photo-like-button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.photo-like-button[aria-pressed="true"] svg{fill:currentColor}
+.photo-like-button:hover{border-color:var(--ink);background:var(--soft)}
+.photo-like-count{font-variant-numeric:tabular-nums;min-width:1ch;color:var(--secondary)}
+.photo-like-status{font-size:11px;color:var(--muted);line-height:1.7;margin-top:7px}
+@media(max-width:700px){#lightbox .photo-like-row{margin-top:12px}#lightbox .photo-like-button{min-height:42px;padding:8px 13px}}
+@media(prefers-reduced-motion:no-preference){.photo-like-button svg{transition:fill .12s ease}}

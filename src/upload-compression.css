@@ -1,0 +1,8 @@
+.compression-options{padding:13px 0 2px;border-bottom:1px solid var(--line)}
+.compression-choice{display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer}
+.compression-choice input{width:14px;height:14px;margin:0;accent-color:var(--ink)}
+.compression-options p{font-size:10px;color:var(--muted);line-height:1.6;margin:6px 0 12px 22px}
+.selected-thumb{height:auto;min-height:0}
+.edit-upload-photo{height:auto;aspect-ratio:1}
+.upload-size-note{display:block;min-height:28px;padding-top:5px;font-size:9px;line-height:1.5;color:var(--secondary);overflow-wrap:anywhere}
+.selected-files.individual-notes .selected-thumb{height:auto;min-height:0}
