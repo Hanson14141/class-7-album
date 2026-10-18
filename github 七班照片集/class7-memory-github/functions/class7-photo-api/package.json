@@ -1,0 +1,6 @@
+{
+  "name": "class7-photo-api",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {"@cloudbase/manager-node": "5.9.1", "@noble/hashes": "2.4.0"}
+}

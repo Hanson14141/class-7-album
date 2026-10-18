@@ -1,0 +1,5 @@
+.wall-speed-control{display:inline-flex;align-items:center;gap:6px;margin-inline:9px;font-size:10px;white-space:nowrap}
+.wall-speed-control select{min-height:30px;padding:3px 16px 3px 6px;border:1px solid var(--line);border-radius:0;background:var(--bg);color:var(--ink);font:inherit;cursor:pointer}
+.wall-speed-control select:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.wall-speed-control select:disabled{opacity:.45;cursor:default}
+@media(max-width:700px){.wall-speed-control{margin-inline:5px;gap:4px}.wall-speed-control select{padding-inline:4px;max-width:58px}.wall-controls{flex-wrap:wrap;row-gap:6px}}

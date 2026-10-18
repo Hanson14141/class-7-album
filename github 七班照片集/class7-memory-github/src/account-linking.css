@@ -1,0 +1,11 @@
+.account-linking-panel{border-top:1px solid var(--line);margin-top:22px;padding-top:18px}
+.account-linking-panel summary{font-size:13px;cursor:pointer;line-height:1.8}
+.account-linking-panel .form-field{margin-top:14px}
+.account-linking-panel #account-link-submit{margin-top:16px}
+#linked-accounts-summary{color:var(--ink);overflow-wrap:anywhere}
+#account-unlink-details{border-top:1px solid var(--line);margin-top:20px;padding-top:18px}
+#account-unlink-details .button{margin-top:14px}
+#unlink-account-name{width:100%;border:1px solid var(--border-strong);padding:10px 12px;background:var(--bg);color:var(--ink);border-radius:0}
+.unlink-consent{display:flex;gap:9px;align-items:flex-start;margin-top:16px;font-size:12px;line-height:1.8;color:var(--secondary)}
+.unlink-consent input{margin-top:5px;flex-shrink:0;accent-color:var(--ink)}
+#unlink-impact{padding:12px;background:var(--soft);color:var(--ink);overflow-wrap:anywhere}

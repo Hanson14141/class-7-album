@@ -1,0 +1,1 @@
+const fs=require('node:fs'),path=require('node:path');const file=path.join(__dirname,'../node_modules/@cloudbase/cli/dist/standalone/cli.js');if(!fs.existsSync(file))throw Error('Run npm ci first');module.exports=file;

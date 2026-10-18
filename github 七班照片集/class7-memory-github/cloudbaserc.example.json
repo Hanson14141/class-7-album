@@ -1,0 +1,25 @@
+{
+  "envId": "YOUR_CLOUDBASE_ENV_ID",
+  "functionRoot": "functions",
+  "functions": [
+    {
+      "name": "class7-photo-api",
+      "type": "HTTP",
+      "instanceConcurrencyConfig": {
+        "maxConcurrency": 10,
+        "dynamicEnabled": "FALSE"
+      },
+      "timeout": 20,
+      "memorySize": 256,
+      "runtime": "Nodejs20.19",
+      "installDependency": true,
+      "envVariables": {
+        "CLASS7_ENV_ID": "YOUR_CLOUDBASE_ENV_ID",
+        "CLASS7_REGION": "ap-shanghai",
+        "CLASS7_STORAGE_BUCKET": "class7-test",
+        "CLASS7_ORIGIN": "https://YOUR_HTTP_DOMAIN",
+        "CLASS7_STORAGE_KEY": ""
+      }
+    }
+  ]
+}

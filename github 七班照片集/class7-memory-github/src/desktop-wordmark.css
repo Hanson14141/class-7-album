@@ -1,0 +1,5 @@
+/* Keep the established phone layout; give the desktop photo wall more room. */
+@media (min-width:701px){
+ .intro{padding-top:24px;padding-bottom:22px}
+ .photo-wordmark{width:min(70%,860px);margin:0 auto}
+}

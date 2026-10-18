@@ -1,0 +1,13 @@
+.wall-view-toggle{font-size:11px;white-space:nowrap;margin-right:7px;min-height:30px}
+@media(min-width:701px){
+ .gallery-toolbar{flex-wrap:wrap}.wall-controls{margin-left:auto;flex-wrap:wrap;row-gap:6px}
+ .wall-shell.complete-wall{height:auto;min-height:360px;overflow:visible;background:transparent}
+ .complete-wall:before,.complete-wall:after{display:none}
+ .complete-wall .photo-wall.static-wall{height:auto;overflow:visible;contain:layout;scrollbar-gutter:auto;touch-action:pan-y}
+ .complete-wall .photo-group{padding-top:0}
+ .gallery-section:fullscreen:has(.complete-wall){overflow-y:auto;display:block}
+ .gallery-section:fullscreen .complete-wall{height:auto;flex:none}
+ .wall-controls:has(#wall-view-toggle[aria-pressed="true"]) .wall-speed-control,
+ .wall-controls:has(#wall-view-toggle[aria-pressed="true"]) .motion-button{display:none}
+}
+@media(max-width:700px){.wall-view-toggle{display:none}}

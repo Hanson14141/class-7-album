@@ -1,0 +1,3 @@
+.photo-wall{contain:layout paint}
+.photo-wall:not(.static-wall) .photo-lane{will-change:transform;backface-visibility:hidden}
+.photo-card{contain:layout paint}

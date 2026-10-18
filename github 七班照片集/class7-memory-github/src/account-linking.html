@@ -1,0 +1,27 @@
+<section class="account-linking-panel">
+ <p id="account-link-current" class="account-help"></p>
+ <p id="linked-accounts-summary" class="account-help" hidden></p>
+ <details id="account-link-details"><summary>关联自己的另一个账号</summary>
+  <p class="account-help">验证另一个账号的密码后，两个账号及各自已关联的账号，都能管理双方已有和今后上传的照片与留言。共享昵称以被关联账号为准，登录账号和密码各自保留。</p>
+  <form id="account-link-form">
+   <div class="form-field"><label for="link-account-name">另一个登录账号</label><input id="link-account-name" name="username" autocomplete="username" minlength="3" maxlength="32" required autocapitalize="none" spellcheck="false" placeholder="填写原账号或要关联的账号"></div>
+   <div class="form-field"><label for="link-account-password">该账号的密码</label><input id="link-account-password" name="password" type="password" autocomplete="current-password" minlength="6" maxlength="128" required placeholder="在此验证密码，不会保存"></div>
+   <button type="submit" class="button button-secondary" id="link-account-submit">验证并关联账号</button>
+  </form>
+ </details>
+ <p id="account-link-result" class="account-help" role="status" hidden></p>
+ <details id="account-unlink-details" hidden><summary>解除账号关联</summary>
+  <p class="account-help">解除后，现有共享照片和留言继续由当前账号及其余关联账号管理；被移除账号不再拥有这些内容的管理权限。不会删除账号、照片或留言。照片仍可按相册的公开权限浏览和下载。</p>
+  <form id="account-unlink-form">
+   <div class="form-field"><label for="unlink-account-name">要移除的关联账号</label><select id="unlink-account-name" required></select></div>
+   <button type="button" class="button button-secondary" id="unlink-account-preview">查看解除影响</button>
+   <div id="unlink-confirm-panel" hidden>
+    <p id="unlink-impact" class="account-help" role="status"></p>
+    <div class="form-field"><label for="unlink-account-password">当前登录账号的密码</label><input id="unlink-account-password" type="password" autocomplete="current-password" minlength="6" maxlength="128" required disabled placeholder="验证当前账号，不是被移除账号的密码"></div>
+    <label class="unlink-consent"><input type="checkbox" id="unlink-account-consent" required disabled><span>我确认移除该账号的共享管理权限，现有内容保留给当前账号及其余关联账号。</span></label>
+    <button type="submit" class="button button-secondary" id="unlink-account-submit" disabled>确认解除关联</button>
+   </div>
+  </form>
+ </details>
+ <p id="account-unlink-result" class="account-help" role="status" hidden></p>
+</section>
