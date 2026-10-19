@@ -1,0 +1,7 @@
+{
+  "id": "nickname-badge",
+  "name": "专属昵称徽章",
+  "description": "在留言和照片署名旁展示一枚小徽章（虚拟荣誉）。兑换后请联系管理员开通。",
+  "price": 60,
+  "enabled": true
+}
