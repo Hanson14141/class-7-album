@@ -16,9 +16,9 @@ async function photoLikeAction(request:Request,id:string,method:string){
  if(method!=='POST')throw new ApiError(404,'没有找到这个接口。');
  const account=await requireAccount(request),data=await jsonBody(request);
  if(typeof data?.liked!=='boolean')throw new ApiError(400,'请指定点赞或取消点赞。');
- const row=await database().prepare('SELECT class7_test.set_photo_like(?,?,?::boolean) AS state').bind(account.id,id,String(data.liked)).first<{state:any}>();
+ const row=await database().prepare('SELECT class7_test.set_photo_like_with_points(?,?,?::boolean) AS state').bind(account.id,id,String(data.liked)).first<{state:any}>();
  const state=typeof row?.state==='string'?JSON.parse(row.state):row?.state;
  if(state?.missing)throw new ApiError(404,'照片已经不存在。');
  if(!state||state.unauthorized)throw new ApiError(401,'请重新登录后再点赞。');
- return response({likeCount:Number(state.likeCount)||0,liked:state.liked===true});
+ return response({likeCount:Number(state.likeCount)||0,liked:state.liked===true,points:state.points||null});
 }

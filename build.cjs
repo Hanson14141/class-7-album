@@ -16,7 +16,8 @@ fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(pa
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/weekly-contest.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/comment-interactions.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/comment-contest.css'),'utf8'));
-let browserApp=fs.readFileSync(path.join(root,'public/app.js'),'utf8');
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/checkin-points.css'),'utf8'));
+let browserApp=fs.readFileSync(path.join(root,'public/app.js'),'utf8').replace(/\r\n/g,'\n');
 browserApp="async function cloudFetch(url,options){for(let retry=0;;retry++){const result=await fetch(url,options);if(result.status!==429||retry>=4)return result;await result.body?.cancel();await new Promise(resolve=>setTimeout(resolve,700*2**retry+Math.random()*250));}}\n"+browserApp;
 browserApp=browserApp.replace("const result=await fetch('/api'+path,{...options,headers,credentials:'same-origin'});", "const result=await cloudFetch('/api'+path,{...options,headers,credentials:'same-origin'});");
 browserApp=browserApp.replace('let data;try{data=await result.json();}',"let data;if(result.status===406)throw new Error('上传请求被服务器拒绝（HTTP 406），原因尚未确认。可开启自动压缩大照片后重试。');try{data=await result.json();}");
@@ -128,7 +129,9 @@ browserApp=browserApp.replace('resetCommentReply();app.commentPhoto=photo.id;', 
 browserApp=browserApp.replace('resetCommentReply();await loadComments();','resetCommentReply();commentFocus=null;await loadComments();');
 browserApp=browserApp.replace("$('#refresh-comments').addEventListener('click',()=>loadComments().catch(commentError));", "$('#refresh-comments').addEventListener('click',()=>{commentFocus=null;loadComments().catch(commentError);});");
 browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/comment-contest-ui.js'),'utf8')+'\ninit();');
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/checkin-points-ui.js'),'utf8')+'\ninit();');
 if(!browserApp.includes('async function loadCommentsLegacy')||!browserApp.includes('!app.commentBoardOpen&&app.playing'))throw Error('Comment contest hooks changed');
+browserApp=browserApp.replace('return data;}', 'if(data.points&&requestGeneration===ownershipGeneration)document.dispatchEvent(new CustomEvent("class7:points",{detail:data.points}));return data;}');
 fs.writeFileSync(path.join(root,'public/app.js'),browserApp);
 fs.cpSync(path.join(old,'public/fonts'),path.join(root,'public/fonts'),{recursive:true});
 let html=fs.readFileSync(path.join(old,'public/album.html'),'utf8');
@@ -163,15 +166,15 @@ html=html.replace('原图上传 · 最多 3 张同时上传','最多 3 张同时
 html=html.replace('<div class="photo-notes-tools"','<div class="compression-options"><label class="compression-choice"><input type="checkbox" id="auto-compress" checked><span>自动压缩大照片</span></label><p>超过 12 MB 时压缩至 6 MB 以内，优先保留照片尺寸，保留本地原文件。压缩后上传及下载的都是压缩版；动图不自动转换。</p></div><div class="photo-notes-tools"');
 html=html.replace('<script src="./app.js" defer></script>','<script src="./photo-compression.js" defer></script><script src="./app.js" defer></script>');
 html=html.replaceAll('下载原图','下载照片').replaceAll('原图，保留原始清晰度','照片').replaceAll('保留原始清晰度','保存网站中的照片').replaceAll('打开原图','打开照片');
-html=html.replace('<button class="profile-button" id="profile-button"','<button type="button" id="reply-inbox-button" class="reply-inbox-button" hidden>回复我的 <span id="reply-badge" class="reply-badge" hidden></span></button><button class="profile-button" id="profile-button"');
+html=html.replace('<button class="profile-button" id="profile-button"','<button type="button" id="checkin-button" class="checkin-button"><span id="checkin-label">签到</span><span id="points-badge" class="points-badge" hidden></span></button><button type="button" id="reply-inbox-button" class="reply-inbox-button" hidden>回复我的 <span id="reply-badge" class="reply-badge" hidden></span></button><button class="profile-button" id="profile-button"');
 html=html.replace('<form id="comment-form">','<div id="comment-reply-target" class="comment-reply-target" hidden><span id="comment-reply-target-name"></span><button type="button" id="cancel-comment-reply">取消</button></div><form id="comment-form">');
 html=html.replace('<div id="comment-list"','<button type="button" class="text-button" id="latest-comments" hidden>查看最新留言 →</button><div id="comment-list"');
 html=html.replace('<div class="toast" id="toast"',fs.readFileSync(path.join(root,'src/comment-interactions.html'),'utf8')+'<div class="toast" id="toast"');
 const staticOrigin='https://class7-memory-d0gcpjaqu47530c54-1509361747.tcloudbaseapp.com/';
 for(const asset of ['favicon.svg','fonts/ArchivoBlack-Regular.ttf','editorial.css','photo-compression.js','app.js']){const hash=require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(root,'public',asset))).digest('hex').slice(0,12);html=html.replaceAll('./'+asset,staticOrigin+asset+'?v='+hash);}
 fs.writeFileSync(path.join(root,'public/index.html'),html);
-let api=fs.readFileSync(path.join(old,'lib/photo-api.ts'),'utf8').replace("from 'cloudflare:workers'","from './platform'");
-const countStart=api.indexOf('    const result=await database().batch([database().prepare(`SELECT * FROM photos '),countEnd=api.indexOf('\n   }\n   if(method===\'POST\')',countStart);
+let api=fs.readFileSync(path.join(old,'lib/photo-api.ts'),'utf8').replace(/\r\n/g,'\n').replace("from 'cloudflare:workers'","from './platform'");
+const countStart=api.indexOf('    const result=await database().batch([database().prepare(`SELECT * FROM photos ${'),countEnd=api.indexOf('\n   }\n   if(method===\'POST\')',countStart);
 if(countStart<0||countEnd<0)throw Error('Photo pagination count hook changed');
 api=api.slice(0,countStart)+fs.readFileSync(path.join(root,'src/photo-counts-api.ts'),'utf8')+api.slice(countEnd);
 api=api.replace('function photoView(row:Photo,hash:string|null){return {id:row.id,','function photoView(row:Photo,hash:string|null){return {likeCount:Number((row as any).like_count)||0,liked:(row as any).liked===true,id:row.id,');
@@ -218,6 +221,9 @@ api=api.replace(interactionHook,interactionHook+"\n  if((parts[0]==='photos'&&((
 api+='\n'+fs.readFileSync(path.join(root,'src/comment-interactions-api.ts'),'utf8');
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='comment-board'&&parts.length===1&&method==='GET')return await commentContestPhotos(request,url);");
 api+='\n'+fs.readFileSync(path.join(root,'src/comment-contest-api.ts'),'utf8');
+api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='checkin'&&parts.length===1)return await checkinRoute(request,method);");
+api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='points'&&parts.length===1)return await pointsRoute(request,method);");
+api+='\n'+fs.readFileSync(path.join(root,'src/checkin-points-api.ts'),'utf8');
 fs.writeFileSync(path.join(root,'src/photo-api.ts'),api);
 let accounts=fs.readFileSync(path.join(old,'lib/accounts.ts'),'utf8').replace("from 'cloudflare:workers'","from './platform'");
 accounts=accounts.replace("import {chatGPTSignInPath} from '../app/chatgpt-auth';","const chatGPTSignInPath=(_path:string)=>'/';");

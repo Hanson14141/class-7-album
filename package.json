@@ -5,7 +5,8 @@
   "scripts": {
     "build": "node build.cjs",
     "check": "node scripts/check-project.cjs",
-    "audit:source": "node scripts/audit-source.cjs"
+    "audit:source": "node scripts/audit-source.cjs",
+    "check:points-races": "node scripts/verify-checkin-races.cjs"
   },
   "devDependencies": {
     "@cloudbase/cli": "3.8.7",

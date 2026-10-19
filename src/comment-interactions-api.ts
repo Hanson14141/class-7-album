@@ -32,9 +32,10 @@ async function commentInteractionRoute(request:Request,parts:string[],url:URL,me
    if(replyToId){parent=await database().prepare('SELECT author FROM comments WHERE id=? AND photo_id=?').bind(replyToId,photoId).first<{author:string}>();if(!parent)throw new ApiError(409,'原留言已被删除，请刷新后再回复。');}
    const id=crypto.randomUUID(),now=new Date().toISOString();
    // The photo and parent are checked again in the INSERT, so a concurrent delete cannot make an orphan reply.
-   const inserted=await database().prepare('INSERT INTO comments(id,photo_id,owner_hash,author,author_username,body,created_at,reply_to_id,reply_to_author) SELECT ?,p.id,?,?,?,?,?,?,? FROM photos p WHERE p.id=? AND (?::text IS NULL OR EXISTS(SELECT 1 FROM comments c WHERE c.id=? AND c.photo_id=p.id)) RETURNING id').bind(id,current.write_owner_hash,current.nickname,account.username,body,now,replyToId,parent?.author||null,photoId,replyToId,replyToId).first<{id:string}>();
+   const results=await database().batch([database().prepare('INSERT INTO comments(id,photo_id,owner_hash,author,author_username,body,created_at,reply_to_id,reply_to_author) SELECT ?,p.id,?,?,?,?,?,?,? FROM photos p WHERE p.id=? AND (?::text IS NULL OR EXISTS(SELECT 1 FROM comments c WHERE c.id=? AND c.photo_id=p.id)) RETURNING id').bind(id,current.write_owner_hash,current.nickname,account.username,body,now,replyToId,parent?.author||null,photoId,replyToId,replyToId),database().prepare('SELECT class7_test.award_points(?,?,?) AS result WHERE EXISTS(SELECT 1 FROM comments WHERE id=?)').bind(account.id,'comment','comment:'+id,id)]);
+   const inserted=results[0].results[0],points=normalizePoints((results[1].results[0] as any)?.result);
    if(!inserted)throw new ApiError(409,'照片或原留言已被删除，请刷新后再试。');
-   return response({comment:{id,author:current.nickname,authorUsername:account.username,body,createdAt:now,mine:true,replyToId,replyToAuthor:parent?.author||null,likeCount:0,liked:false}},201);
+   return response({comment:{id,author:current.nickname,authorUsername:account.username,body,createdAt:now,mine:true,replyToId,replyToAuthor:parent?.author||null,likeCount:0,liked:false},points},201);
   }
  }
  if(parts[0]==='comments'&&parts.length===3&&parts[2]==='likes'){
@@ -45,11 +46,11 @@ async function commentInteractionRoute(request:Request,parts:string[],url:URL,me
   if(method==='POST'){
    const account=await requireAccount(request),data=await jsonBody(request);
    if(typeof data?.liked!=='boolean')throw new ApiError(400,'请指定点赞或取消点赞。');
-   const row=await database().prepare('SELECT class7_test.set_comment_like(?,?,?::boolean) AS state').bind(account.id,id,String(data.liked)).first<{state:any}>();
+   const row=await database().prepare('SELECT class7_test.set_comment_like_with_points(?,?,?::boolean) AS state').bind(account.id,id,String(data.liked)).first<{state:any}>();
    const state=typeof row?.state==='string'?JSON.parse(row.state):row?.state;
    if(state?.missing)throw new ApiError(404,'留言已被删除。');
    if(!state||state.unauthorized)throw new ApiError(401,'请重新登录后再点赞。');
-   return response({likeCount:Number(state.likeCount)||0,weeklyCount:Number(state.weeklyCount)||0,liked:state.liked===true});
+   return response({likeCount:Number(state.likeCount)||0,weeklyCount:Number(state.weeklyCount)||0,liked:state.liked===true,points:state.points||null});
   }
  }
  if(parts[0]==='replies'&&parts[1]==='inbox'&&parts.length===2){

@@ -5,7 +5,7 @@
 ## 从这里开始
 
 1. 阅读 `README.md` 了解运行方式。
-2. 阅读 `UPDATE_NOTES.md` 了解 2026-10-19「这期神了」版本的新增功能、修改文件、迁移顺序和验证边界。
+2. 阅读 `UPDATE_NOTES.md` 了解最新「签到与积分」和此前「这期神了」版本的新增功能、修改文件、迁移顺序和验证边界。
 3. 修改前按需要阅读 `docs/DEVELOPMENT.md` 和 `docs/DEPLOY.md`。
 
 这是腾讯云 CloudBase 的完整应用源码。GitHub 用于保存代码；前端、HTTP 云函数、PostgreSQL 和私有图片存储共同提供功能。没有自动部署工作流。
@@ -14,6 +14,7 @@
 
 - 基础界面在 `baseline/public/`；CloudBase 适配及新增功能在 `src/`，通过 `build.cjs` 拼接和构建。
 - 本次评论榜重点阅读 `src/comment-contest-*`、`src/comment-interactions-*`、`src/weekly-contest-ui.js` 与 `build.cjs`。
+- 签到积分重点阅读 `checkin-points.sql`、`src/checkin-points-*`、`src/photo-likes-api.ts`、`src/comment-interactions-api.ts` 与 `build.cjs`。修改时保留点赞/评论及奖励的事务一致性；周点赞重置不应重复发放同一项的积分。
 - 数据库完整初始化在 `schema.sql`，增量升级在对应 SQL 文件及 `scripts/apply-*.cjs`。修改共享 SQL 逻辑时检查完整 schema 和增量脚本是否一致。
 - 不直接编辑生成文件：`public/`、`hosting/`、`functions/class7-photo-api/public/`、`functions/class7-photo-api/index.cjs`、`src/accounts.ts`、`src/photo-api.ts`。下次构建会覆盖它们。
 - `build.cjs` 使用字符串替换；插入包含 `$`/`$$` 的 JS 源码时注意替换字符串的特殊含义，必要时用函数返回替换文本。
@@ -37,6 +38,8 @@ npm run audit:source
 ```
 
 这些命令用于本地安装、构建、检查和源码审计，不会主动部署。按实际改动补充必要验证；不要把构建检查通过描述为数据库或真实登录流程已验收。纯文档改动核对内容和链接即可。
+
+修改签到积分的前端状态时，运行 `npm run check:points-races` 验证慢响应、积分并发更新、午夜跨日、身份切换和重复点击；该测试仅使用本地虚拟响应，不调用云服务。
 
 ## 云端与数据
 

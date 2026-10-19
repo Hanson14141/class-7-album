@@ -14,6 +14,8 @@
 | src/usage-notice.html | 首次访问的简短说明 |
 | src/comment-contest-* | 评论榜接口、界面、每周点赞状态与来源照片定位 |
 | comment-contest.sql | 评论每周点赞、周榜结算与总赞排序 |
+| src/checkin-points-* | 签到/积分接口、状态同步与顶栏展示 |
+| checkin-points.sql | 私有积分配置、流水、连续签到与事务点赞奖励 |
 | schema.sql | 数据表、索引和服务端事务函数 |
 | functions/class7-photo-api/ | 函数依赖清单及 Linux 启动脚本 |
 
