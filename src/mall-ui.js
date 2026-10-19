@@ -13,6 +13,11 @@ function renderMallItems(){
  $('#mall-empty').hidden=mallState.loading||mallState.items.length>0;
  for(const item of mallState.items){
   const card=document.createElement('article');card.className='mall-card';
+  if(item.images?.length){
+   const images=document.createElement('div');images.className='mall-card-images';
+   for(const image of item.images){const img=document.createElement('img');img.src=image.src;img.alt=image.alt;img.loading='lazy';img.decoding='async';img.draggable=false;images.append(img);}
+   card.append(images);
+  }
   const name=document.createElement('h3');name.textContent=item.name;
   const desc=document.createElement('p');desc.className='mall-card-desc';desc.textContent=item.description;
   const meta=document.createElement('div');meta.className='mall-card-meta';
