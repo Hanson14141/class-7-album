@@ -1,6 +1,6 @@
 async function photoLikeStates(ids:string[],owner:string|null){
  if(!ids.length)return new Map<string,{likeCount:number;liked:boolean}>();
- const result=await database().prepare('SELECT photo_id,count(DISTINCT class7_test.canonical_owner(owner_hash)) AS n,bool_or(class7_test.canonical_owner(owner_hash)=?) AS liked FROM photo_likes WHERE photo_id IN (SELECT jsonb_array_elements_text(?::jsonb)) GROUP BY photo_id').bind(owner||'',JSON.stringify(ids)).all();
+ const result=await database().prepare('SELECT photo_id,count(DISTINCT (class7_test.canonical_owner(owner_hash),week_start)) AS n,bool_or(week_start=class7_test.contest_week_start(clock_timestamp()) AND class7_test.canonical_owner(owner_hash)=?) AS liked FROM photo_likes WHERE photo_id IN (SELECT jsonb_array_elements_text(?::jsonb)) GROUP BY photo_id').bind(owner||'',JSON.stringify(ids)).all();
  return new Map<string,{likeCount:number;liked:boolean}>(result.results.map((row:any)=>[row.photo_id,{likeCount:Number(row.n)||0,liked:row.liked===true}]));
 }
 async function addPhotoLikeStates(rows:Photo[],owner:string|null){

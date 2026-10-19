@@ -17,7 +17,7 @@ async function weeklyContestPhotos(request:Request,url:URL){
   score.weekly_votes,score.rank,COALESCE(v.like_count,0) AS like_count,COALESCE(v.liked,false) AS liked
   FROM jsonb_to_recordset(?::jsonb) AS score(photo_id text,weekly_votes bigint,total_votes bigint,rank bigint)
   JOIN photos p ON p.id=score.photo_id
-  LEFT JOIN (SELECT photo_id,count(DISTINCT class7_test.canonical_owner(owner_hash)) AS like_count,bool_or(class7_test.canonical_owner(owner_hash)=?) AS liked FROM photo_likes GROUP BY photo_id) v ON v.photo_id=p.id
+  LEFT JOIN (SELECT photo_id,count(DISTINCT (class7_test.canonical_owner(owner_hash),week_start)) AS like_count,bool_or(week_start=class7_test.contest_week_start(clock_timestamp()) AND class7_test.canonical_owner(owner_hash)=?) AS liked FROM photo_likes GROUP BY photo_id) v ON v.photo_id=p.id
   ORDER BY score.rank`).bind(JSON.stringify(entries),owner||'').all();rows=page.results;}
  const {entries:_privateEntries,week,...meta}=contest;
  return response({photos:await Promise.all(rows.map(async row=>({...await photoView(row,owner),rank:Number(row.rank),weeklyCount:Number(row.weekly_votes)}))),

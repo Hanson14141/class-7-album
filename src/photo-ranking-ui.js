@@ -11,7 +11,7 @@ function updatePhotoOrderUI(){
  $('#shuffle-button').hidden=rankingActive();
  $('#wall-view-toggle').hidden=rankingActive();
  $('#wall-shell').classList.toggle('ranking-wall',rankingActive());
- $('#photo-order').title=weeklyActive()?'每周大赛：本周新增有效点赞，突出前三名':rankingActive()?'点赞从高到低，同赞数按最新上传排序；刷新更新名次':'保留随机瀑布照片墙';
+ $('#photo-order').title=weeklyActive()?'每周大赛：每周重置点赞机会，突出前三名':rankingActive()?'累计点赞从高到低，同赞数按最新上传排序；刷新更新名次':'保留随机瀑布照片墙';
  $('#ranking-note').hidden=!rankingActive();
 }
 function addPhotoRankBadge(button,photo){

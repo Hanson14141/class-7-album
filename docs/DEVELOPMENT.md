@@ -12,6 +12,8 @@
 | src/wall-speed-ui.js | 流速选择与本地记忆 |
 | src/account-recovery-ui.js | 登录账号记忆和请求状态控制变量 |
 | src/usage-notice.html | 首次访问的简短说明 |
+| src/comment-contest-* | 评论榜接口、界面、每周点赞状态与来源照片定位 |
+| comment-contest.sql | 评论每周点赞、周榜结算与总赞排序 |
 | schema.sql | 数据表、索引和服务端事务函数 |
 | functions/class7-photo-api/ | 函数依赖清单及 Linux 启动脚本 |
 

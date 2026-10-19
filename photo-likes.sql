@@ -41,6 +41,8 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
 DECLARE source_raw text; target_raw text; old_group text; new_group text; members text; photo_count bigint; comment_count bigint;
 BEGIN
  LOCK TABLE class7_test.account_owner_links IN SHARE ROW EXCLUSIVE MODE;
+ IF to_regprocedure('class7_test.contest_tick()') IS NOT NULL THEN PERFORM class7_test.contest_tick(); END IF;
+ IF to_regprocedure('class7_test.comment_contest_tick()') IS NOT NULL THEN PERFORM class7_test.comment_contest_tick(); END IF;
  SELECT owner_hash INTO source_raw FROM class7_test.accounts WHERE id=source_id;
  SELECT owner_hash INTO target_raw FROM class7_test.accounts WHERE id=target_id;
  IF source_raw IS NULL OR target_raw IS NULL OR source_id=target_id THEN RETURN jsonb_build_object('invalid',true); END IF;
@@ -60,10 +62,28 @@ BEGIN
  UPDATE class7_test.comments SET owner_hash=new_group WHERE owner_hash=target_raw;
  -- Keep existing shared votes with the remaining group when a member leaves.
  IF to_regclass('class7_test.photo_likes') IS NOT NULL THEN
+  IF EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='class7_test.photo_likes'::regclass AND attname='week_start' AND NOT attisdropped) THEN
+   INSERT INTO class7_test.photo_likes(photo_id,owner_hash,created_at,voted_at,week_start)
+   SELECT photo_id,new_group,min(created_at),min(voted_at),week_start FROM class7_test.photo_likes WHERE owner_hash=target_raw GROUP BY photo_id,week_start
+   ON CONFLICT(photo_id,owner_hash,week_start) DO UPDATE SET created_at=LEAST(class7_test.photo_likes.created_at,excluded.created_at),voted_at=LEAST(class7_test.photo_likes.voted_at,excluded.voted_at);
+  ELSE
   INSERT INTO class7_test.photo_likes(photo_id,owner_hash,created_at)
   SELECT photo_id,new_group,min(created_at) FROM class7_test.photo_likes WHERE owner_hash=target_raw GROUP BY photo_id
   ON CONFLICT(photo_id,owner_hash) DO UPDATE SET created_at=LEAST(class7_test.photo_likes.created_at,excluded.created_at);
+  END IF;
   DELETE FROM class7_test.photo_likes WHERE owner_hash=target_raw;
+ END IF;
+ IF to_regclass('class7_test.comment_likes') IS NOT NULL THEN
+  IF EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='class7_test.comment_likes'::regclass AND attname='week_start' AND NOT attisdropped) THEN
+   INSERT INTO class7_test.comment_likes(comment_id,owner_hash,created_at,voted_at,week_start)
+   SELECT comment_id,new_group,min(created_at),min(voted_at),week_start FROM class7_test.comment_likes WHERE owner_hash=target_raw GROUP BY comment_id,week_start
+   ON CONFLICT(comment_id,owner_hash,week_start) DO UPDATE SET created_at=LEAST(class7_test.comment_likes.created_at,excluded.created_at),voted_at=LEAST(class7_test.comment_likes.voted_at,excluded.voted_at);
+  ELSE
+  INSERT INTO class7_test.comment_likes(comment_id,owner_hash,created_at)
+  SELECT comment_id,new_group,min(created_at) FROM class7_test.comment_likes WHERE owner_hash=target_raw GROUP BY comment_id
+  ON CONFLICT(comment_id,owner_hash) DO UPDATE SET created_at=LEAST(class7_test.comment_likes.created_at,excluded.created_at);
+  END IF;
+  DELETE FROM class7_test.comment_likes WHERE owner_hash=target_raw;
  END IF;
  -- Preserve the earliest shared vote when an account leaves the group.
  IF to_regclass('class7_test.photo_like_history') IS NOT NULL THEN

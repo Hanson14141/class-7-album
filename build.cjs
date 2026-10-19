@@ -14,6 +14,8 @@ fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(pa
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/photo-likes.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/photo-ranking.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/weekly-contest.css'),'utf8'));
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/comment-interactions.css'),'utf8'));
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/comment-contest.css'),'utf8'));
 let browserApp=fs.readFileSync(path.join(root,'public/app.js'),'utf8');
 browserApp="async function cloudFetch(url,options){for(let retry=0;;retry++){const result=await fetch(url,options);if(result.status!==429||retry>=4)return result;await result.body?.cancel();await new Promise(resolve=>setTimeout(resolve,700*2**retry+Math.random()*250));}}\n"+browserApp;
 browserApp=browserApp.replace("const result=await fetch('/api'+path,{...options,headers,credentials:'same-origin'});", "const result=await cloudFetch('/api'+path,{...options,headers,credentials:'same-origin'});");
@@ -110,12 +112,31 @@ browserApp=browserApp.replace('Math.max(1,photos.length));', 'Math.max(1,weeklyA
 browserApp=browserApp.replace("for(const button of $$('.nav-tab'))button.addEventListener('click',()=>{if(app.bulkBusy)return;", ()=>"for(const button of $$('.nav-tab'))button.addEventListener('click',()=>{if(app.bulkBusy)return;if(weeklyActive()){photoOrder='random';safeWrite('class7-photo-order',photoOrder);app.view=button.dataset.view;app.filter='';updateTabs();reloadPhotoOrder();return;}");
 browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/weekly-contest-ui.js'),'utf8')+'\ninit();');
 if(!browserApp.includes("params.set('sort','weekly')")||!browserApp.includes('renderWeeklyContest();'))throw Error('Weekly contest UI hooks changed');
+// Replies reuse the existing comment form while adding an account-wide inbox.
+browserApp=browserApp.replace('function renderComments(){','function renderCommentsLegacy(){');
+browserApp=browserApp.replace("app.commentPhoto=photo.id;app.comments=[];", "resetCommentReply();app.commentPhoto=photo.id;app.comments=[];");
+browserApp=browserApp.replace("json:{body}});if(id===app.commentPhoto){$('#comment-body').value='';", "json:{body,replyToId:commentReplyTarget?.id||null}});if(id===app.commentPhoto){$('#comment-body').value='';resetCommentReply();");
+browserApp=browserApp.replace("finally{app.commentBusy=false;$('#send-comment').disabled=false;$('#send-comment').textContent='发送留言';}});}","finally{app.commentBusy=false;$('#send-comment').disabled=false;$('#send-comment').textContent=commentReplyTarget?'发送回复':'发送留言';}});}");
+browserApp=browserApp.replace('function updateProfile(){','function updateProfile(){\n  refreshReplyInbox();');
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/comment-interactions-ui.js'),'utf8')+'\ninit();');
+if(!browserApp.includes('function renderCommentsLegacy()')||!browserApp.includes('replyToId:commentReplyTarget?.id'))throw Error('Comment UI hooks changed');
+browserApp=browserApp.replace('async function loadComments(older=false){','async function loadCommentsLegacy(older=false){');
+browserApp=browserApp.replace('function updateProfile(){','function updateProfile(){\n  refreshCommentBoardIdentity();');
+browserApp=browserApp.replace('return app.playing&&!app.hoverPaused', 'return !app.commentBoardOpen&&app.playing&&!app.hoverPaused');
+browserApp=browserApp.replace("for(const button of $$('.nav-tab'))button.addEventListener('click',()=>{if(app.bulkBusy)return;",()=>"for(const button of $$('.nav-tab'))button.addEventListener('click',()=>{if(app.bulkBusy)return;closeCommentBoard();");
+browserApp=browserApp.replace('resetCommentReply();app.commentPhoto=photo.id;', 'if(commentFocus?.photoId!==photo.id)commentFocus=null;resetCommentReply();app.commentPhoto=photo.id;');
+browserApp=browserApp.replace('resetCommentReply();await loadComments();','resetCommentReply();commentFocus=null;await loadComments();');
+browserApp=browserApp.replace("$('#refresh-comments').addEventListener('click',()=>loadComments().catch(commentError));", "$('#refresh-comments').addEventListener('click',()=>{commentFocus=null;loadComments().catch(commentError);});");
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/comment-contest-ui.js'),'utf8')+'\ninit();');
+if(!browserApp.includes('async function loadCommentsLegacy')||!browserApp.includes('!app.commentBoardOpen&&app.playing'))throw Error('Comment contest hooks changed');
 fs.writeFileSync(path.join(root,'public/app.js'),browserApp);
 fs.cpSync(path.join(old,'public/fonts'),path.join(root,'public/fonts'),{recursive:true});
 let html=fs.readFileSync(path.join(old,'public/album.html'),'utf8');
 html=html.replace('<label class="select-wrap"><span class="sr-only">按上传者筛选', '<label class="select-wrap photo-order-control"><span class="sr-only">照片排列方式</span><select id="photo-order" aria-label="照片排列方式"><option value="random">随机照片墙</option><option value="likes">点赞排行</option></select><svg class="icon"><use href="#i-chevron"/></svg></label><label class="select-wrap"><span class="sr-only">按上传者筛选');
 html=html.replace('<div class="wall-shell"', '<p id="ranking-note" class="ranking-note" hidden>点赞从高到低 · 同赞数按最新上传排序 · 刷新更新名次</p><div class="wall-shell"');
 html=html.replace('</nav>','<button type="button" class="contest-nav" id="weekly-contest-nav">每周大赛</button></nav>');
+html=html.replace('</nav>','<button type="button" class="contest-nav comment-contest-nav" id="comment-contest-nav">这期神了</button></nav>');
+html=html.replace('<section class="gallery-section"',fs.readFileSync(path.join(root,'src/comment-contest.html'),'utf8')+'<section class="gallery-section"');
 html=html.replace('<option value="likes">点赞排行</option>','<option value="likes">点赞排行</option><option value="weekly">每周大赛</option>');
 html=html.replace('<div class="gallery-toolbar">',fs.readFileSync(path.join(root,'src/weekly-contest.html'),'utf8')+'<div class="gallery-toolbar">');
 const oldInfoDialog=/<dialog class="info-dialog" id="info-dialog"[\s\S]*?<\/dialog>/;
@@ -142,6 +163,10 @@ html=html.replace('原图上传 · 最多 3 张同时上传','最多 3 张同时
 html=html.replace('<div class="photo-notes-tools"','<div class="compression-options"><label class="compression-choice"><input type="checkbox" id="auto-compress" checked><span>自动压缩大照片</span></label><p>超过 12 MB 时压缩至 6 MB 以内，优先保留照片尺寸，保留本地原文件。压缩后上传及下载的都是压缩版；动图不自动转换。</p></div><div class="photo-notes-tools"');
 html=html.replace('<script src="./app.js" defer></script>','<script src="./photo-compression.js" defer></script><script src="./app.js" defer></script>');
 html=html.replaceAll('下载原图','下载照片').replaceAll('原图，保留原始清晰度','照片').replaceAll('保留原始清晰度','保存网站中的照片').replaceAll('打开原图','打开照片');
+html=html.replace('<button class="profile-button" id="profile-button"','<button type="button" id="reply-inbox-button" class="reply-inbox-button" hidden>回复我的 <span id="reply-badge" class="reply-badge" hidden></span></button><button class="profile-button" id="profile-button"');
+html=html.replace('<form id="comment-form">','<div id="comment-reply-target" class="comment-reply-target" hidden><span id="comment-reply-target-name"></span><button type="button" id="cancel-comment-reply">取消</button></div><form id="comment-form">');
+html=html.replace('<div id="comment-list"','<button type="button" class="text-button" id="latest-comments" hidden>查看最新留言 →</button><div id="comment-list"');
+html=html.replace('<div class="toast" id="toast"',fs.readFileSync(path.join(root,'src/comment-interactions.html'),'utf8')+'<div class="toast" id="toast"');
 const staticOrigin='https://class7-memory-d0gcpjaqu47530c54-1509361747.tcloudbaseapp.com/';
 for(const asset of ['favicon.svg','fonts/ArchivoBlack-Regular.ttf','editorial.css','photo-compression.js','app.js']){const hash=require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(root,'public',asset))).digest('hex').slice(0,12);html=html.replaceAll('./'+asset,staticOrigin+asset+'?v='+hash);}
 fs.writeFileSync(path.join(root,'public/index.html'),html);
@@ -186,6 +211,13 @@ api+='\n'+fs.readFileSync(path.join(root,'src/weekly-contest-api.ts'),'utf8');
 api=api.replace('try{title=await insertPhoto({id,owner_hash:current.device_hash,','try{title=await insertPhoto({id,owner_hash:current.write_owner_hash,');
 api=api.replace('await requireAccount(request);const current=(await profile(request,true))!,data=', 'const current=await requireAccountProfile(request),data=');
 api=api.replace('.bind(id,photoId,current.device_hash,current.nickname,body,now)', '.bind(id,photoId,current.write_owner_hash,current.nickname,body,now)');
+// Higher priority interaction routes keep the original legacy routes intact for build history.
+const interactionHook="  if(parts[0]==='account'&&parts.length===2)return await accountAction(request,parts[1],jsonBody);";
+if(!api.includes(interactionHook))throw Error('Interaction API hook changed');
+api=api.replace(interactionHook,interactionHook+"\n  if((parts[0]==='photos'&&((parts.length===2&&method==='GET')||(parts.length===3&&parts[2]==='comments')))||(parts[0]==='comments'&&parts.length===3&&parts[2]==='likes')||(parts[0]==='replies'&&parts.length===2&&parts[1]==='inbox'))return await commentInteractionRoute(request,parts,url,method);");
+api+='\n'+fs.readFileSync(path.join(root,'src/comment-interactions-api.ts'),'utf8');
+api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='comment-board'&&parts.length===1&&method==='GET')return await commentContestPhotos(request,url);");
+api+='\n'+fs.readFileSync(path.join(root,'src/comment-contest-api.ts'),'utf8');
 fs.writeFileSync(path.join(root,'src/photo-api.ts'),api);
 let accounts=fs.readFileSync(path.join(old,'lib/accounts.ts'),'utf8').replace("from 'cloudflare:workers'","from './platform'");
 accounts=accounts.replace("import {chatGPTSignInPath} from '../app/chatgpt-auth';","const chatGPTSignInPath=(_path:string)=>'/';");

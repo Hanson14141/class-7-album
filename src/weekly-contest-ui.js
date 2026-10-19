@@ -2,11 +2,12 @@ let weeklyContest=null,contestPeriod='current';
 function weeklyActive(){return $('#photo-order').value==='weekly';}
 function contestDate(value){return new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'numeric',day:'numeric'}).format(new Date(value));}
 function applyContestLayout(){
- const active=weeklyActive();document.body.classList.toggle('contest-mode',active);$('#weekly-contest').hidden=!active;
+ const active=!app.commentBoardOpen&&weeklyActive();document.body.classList.toggle('contest-mode',active);$('#weekly-contest').hidden=!active;
  $('#weekly-contest-nav').classList.toggle('active',active);
  if(active)$('#weekly-contest-nav').setAttribute('aria-current','page');else $('#weekly-contest-nav').removeAttribute('aria-current');
  for(const tab of $$('.nav-tab')){const chosen=!active&&tab.dataset.view===app.view;tab.classList.toggle('active',chosen);if(chosen)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');}
  $('#ranking-note').hidden=!rankingActive()||active;
+ syncCommentBoardNav();
 }
 function acceptWeeklyContest(data){weeklyContest=data.contest;const owned=Number(data.ownedTotal);if(Number.isSafeInteger(owned)&&owned>=0)albumPhotoCounts.owned=owned;}
 function renderWeeklyContest(){
@@ -35,9 +36,9 @@ function renderWeeklyContest(){
   }else{imageBox.textContent=app.cloudLoaded?(weeklyContest?.closed?'本期暂无照片':'席位待定'):'正在统计';podium.append(card);}
  }
  const empty=app.cloudLoaded&&total===0;$('#contest-empty').hidden=!empty;
- $('#contest-empty-message').textContent=weeklyContest?.closed?'本期没有获得有效点赞的照片。':'本期还没有新增有效点赞，前三名等你来选。';
+ $('#contest-empty-message').textContent=weeklyContest?.closed?'本期没有获得有效点赞的照片。':'本周还没有有效点赞，以前赞过的照片也能再选。';
 }
-async function openWeeklyContest(){if(app.bulkBusy)return;photoOrder='weekly';contestPeriod='current';app.view='all';app.filter='';safeWrite('class7-photo-order',photoOrder);await reloadPhotoOrder();}
+async function openWeeklyContest(){if(app.bulkBusy)return;closeCommentBoard();photoOrder='weekly';contestPeriod='current';app.view='all';app.filter='';safeWrite('class7-photo-order',photoOrder);await reloadPhotoOrder();}
 $('#weekly-contest-nav').addEventListener('click',openWeeklyContest);
 for(const [id,period] of [['contest-current','current'],['contest-previous','previous']])$('#'+id).addEventListener('click',async()=>{if(contestPeriod===period)return;contestPeriod=period;await reloadPhotoOrder();});
 $('#contest-explore').addEventListener('click',async()=>{photoOrder='random';safeWrite('class7-photo-order',photoOrder);await reloadPhotoOrder();});

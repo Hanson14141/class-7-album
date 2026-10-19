@@ -15,7 +15,7 @@ async function rankedPhotos(request:Request,url:URL){
  const base=mine?'WHERE class7_test.canonical_owner(owner_hash)=?':'',baseValues=mine?[owner]:[];
  const result=await database().batch([
   database().prepare(`SELECT p.id,class7_test.canonical_owner(p.owner_hash) AS owner_hash,p.uploader,p.title,p.caption,p.object_key,p.mime,p.bytes,p.width,p.height,p.rotation,p.created_at,COALESCE(v.like_count,0) AS like_count,COALESCE(v.liked,false) AS liked
-   FROM photos p LEFT JOIN (SELECT photo_id,count(DISTINCT class7_test.canonical_owner(owner_hash)) AS like_count,bool_or(class7_test.canonical_owner(owner_hash)=?) AS liked FROM photo_likes GROUP BY photo_id) v ON v.photo_id=p.id ${where.length?'WHERE '+where.join(' AND '):''}
+   FROM photos p LEFT JOIN (SELECT photo_id,count(DISTINCT (class7_test.canonical_owner(owner_hash),week_start)) AS like_count,bool_or(week_start=class7_test.contest_week_start(clock_timestamp()) AND class7_test.canonical_owner(owner_hash)=?) AS liked FROM photo_likes GROUP BY photo_id) v ON v.photo_id=p.id ${where.length?'WHERE '+where.join(' AND '):''}
    ORDER BY COALESCE(v.like_count,0) DESC,p.created_at DESC,p.id DESC LIMIT 101`).bind(...values),
   database().prepare(`SELECT count(*) AS n FROM photos ${base}`).bind(...baseValues),
   database().prepare(`SELECT uploader,count(*) AS n FROM photos ${base} GROUP BY uploader`).bind(...baseValues),

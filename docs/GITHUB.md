@@ -23,6 +23,8 @@ git push -u origin main
 
 ## 后续更新
 
+仓库根目录 `UPDATE_NOTES.md` 提供可直接复制到 GitHub Release 的更新说明、文件修改索引、数据库升级顺序和交给 AI 的提示词；`AGENTS.md` 提供 AI 编辑入口与构建约定。更新时请把这两份文件一起上传，后续协作者下载 ZIP 后即可阅读。
+
 修改源码后运行 npm run build 和 npm run check，再提交源码。public/、hosting/ 和函数构建文件会自动生成，不必反复上传。
 
 这个交付包使用新的干净源码提交，方便首次上传。原开发目录和完整 Git 历史保留在本机，未删除或重写；历史 bundle 不放入上传包。
