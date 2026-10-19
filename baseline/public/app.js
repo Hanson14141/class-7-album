@@ -64,6 +64,19 @@ function removePhoto(id){return new Promise((resolve,reject)=>{const tx=app.db.t
 function deviceKey(){let key=safeRead('class7-device-key');if(!/^[a-f0-9]{64}$/.test(key)){key=[...crypto.getRandomValues(new Uint8Array(32))].map(n=>n.toString(16).padStart(2,'0')).join('');safeWrite('class7-device-key',key);}if(safeRead('class7-device-key')!==key)throw new Error('请允许浏览器保存网站数据，才能记住昵称和管理自己的照片。');return key;}
 async function api(path,options={}){const headers=new Headers(options.headers);try{headers.set('X-Device-Key',deviceKey());}catch(error){if(options.method&&options.method!=='GET'&&!app.account?.signedIn)throw error;}if(options.json){headers.set('Content-Type','application/json');options.body=JSON.stringify(options.json);delete options.json;}const result=await fetch('/api'+path,{...options,headers,credentials:'same-origin'});let data;try{data=await result.json();}catch{throw new Error('服务连接失败，请刷新页面后重试。');}if(!result.ok){if(result.status===401&&app.account?.signedIn){app.account={...app.account,signedIn:false};app.profile=null;updateProfile();}const error=new Error(data.error||'操作失败，请重试。');error.status=result.status;throw error;}return data;}
 const isMine=photo=>photo.owned||photo.local;
+let pointsRequest=0;
+async function refreshAccountPoints(){
+  const panel=$('#account-points'),version=++pointsRequest;
+  if(!app.account?.signedIn){panel.hidden=true;return;}
+  panel.hidden=false;
+  try{
+    const data=await api('/points');
+    if(version!==pointsRequest||!app.account?.signedIn)return;
+    const total=Math.max(0,Number(data.totalPoints)||0),streak=Number(data.streak)||0;
+    $('#account-points-value').textContent=total;
+    $('#account-points-meta').textContent=(data.checkedIn?'今日已签到':'今日还未签到')+(streak?' · 已连续 '+streak+' 天':'');
+  }catch{if(version===pointsRequest)panel.hidden=true;}
+}
 function updateProfile(){
   const name=app.profile?.nickname,signed=!!app.account?.signedIn;
   $('#account-recovery-notice').hidden=app.view!=='mine'||signed;
@@ -72,6 +85,7 @@ function updateProfile(){
   const photos=app.account?.legacyPhotos||0,comments=app.account?.legacyComments||0;
   $('#legacy-account-summary').textContent=photos||comments?'找到 '+photos+' 张旧照片、'+comments+' 条旧留言，关联后即可用此账号跨设备管理。':'当前身份没有待关联的旧照片或留言。';$('#link-existing').hidden=!(photos||comments);$('#link-existing').disabled=app.accountBusy;
   const url=app.account?.legacySignInUrl;if(url)$('#verify-legacy').href=url;
+  $('#profile-button').classList.toggle('signed-in',signed);refreshAccountPoints();
 }
 function openLogin(action){app.pendingAction=typeof action==='function'?action:null;$('#nickname-input').value=app.profile?.nickname||safeRead('class7-nickname')||safeRead('shiguang-uploader');$('#account-nickname').value=$('#nickname-input').value;$('#account-password').value='';$('#account-confirm').value='';$('#login-error').hidden=true;$('#account-error').hidden=true;$('#legacy-account-result').hidden=true;updateProfile();showDialog('login-dialog');}
 function withProfile(action){if(app.account?.signedIn&&app.profile)action();else openLogin(action);}
@@ -448,6 +462,7 @@ reducedMotion.addEventListener('change',event=>{if(event.matches)app.playing=fal
 
 $('#refresh-gallery').addEventListener('click',async()=>{$('#refresh-gallery').disabled=true;try{await loadCloud();toast('相册已更新');}catch(e){toast(e.message);}finally{$('#refresh-gallery').disabled=false;}});
 $('#profile-button').addEventListener('click',()=>openLogin());
+document.addEventListener('class7:points',event=>{if(app.account?.signedIn&&!$('#account-points').hidden)$('#account-points-value').textContent=Math.max(0,Number(event.detail?.total)||0);});
 $('#change-upload-name').addEventListener('click',()=>openLogin());
 $('#login-form').addEventListener('submit',async event=>{event.preventDefault();if(!app.account?.signedIn)return;const nickname=$('#nickname-input').value.trim();if(!nickname)return;$('#save-nickname').disabled=true;try{await api('/profile',{method:'POST',json:{nickname}});safeWrite('class7-nickname',nickname);await refreshIdentity();toast('昵称已保存');}catch(e){$('#login-error').textContent=e.message;$('#login-error').hidden=false;}finally{$('#save-nickname').disabled=false;}});
 $('#account-mode-login').addEventListener('click',()=>setAccountMode('login'));$('#account-mode-register').addEventListener('click',()=>setAccountMode('register'));
