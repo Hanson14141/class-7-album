@@ -1,8 +1,10 @@
 <section id="mall-board" class="mall-board" aria-labelledby="mall-title" hidden>
- <div class="mall-heading"><div><p class="contest-eyebrow">CLASS 7 / POINTS MALL</p><h1 id="mall-title">商城</h1><p class="mall-subtitle">用签到、留言和点赞攒下的积分，兑换七班的小心意。</p></div><div class="mall-points"><span>我的积分</span><strong id="mall-points">—</strong></div></div>
+ <div class="mall-heading"><div><p class="contest-eyebrow">CLASS 7 / DAILY PICKS</p><h1 id="mall-title">商城</h1><p class="mall-subtitle">每天五张随机照片，把喜欢的瞬间收进库存。</p></div><div class="mall-points"><span>我的积分</span><strong id="mall-points">—</strong></div></div>
+ <div class="mall-tabs" role="group" aria-label="商城栏目"><button type="button" id="mall-shop-tab" aria-pressed="true">今日照片</button><button type="button" id="mall-inventory-tab" aria-pressed="false">我的库存 <span id="mall-inventory-count">0</span></button><span id="mall-day-note">普通10 / 史诗20 / 传奇30积分 · 北京时间零点更新</span></div>
  <p id="mall-status" class="mall-status" role="status" hidden></p>
- <div id="mall-items" class="mall-items" aria-label="可兑换商品"></div>
- <div id="mall-empty" class="mall-empty" hidden><p>货架正在补货中，先去签到、留言和点赞攒积分吧。</p></div>
- <section class="mall-history" id="mall-history" hidden><h2>我的兑换记录</h2><ul id="mall-history-list"></ul></section>
- <details class="contest-rules"><summary>兑换规则</summary><p>商品由协作者在源码 mall-goods/ 目录上架；兑换立即扣除积分，不可撤销。标有库存的商品兑完即止。虚拟荣誉与实体商品均由维护同学按兑换记录另行发放，兑换后请联系管理员。积分获取规则见顶栏签到按钮。</p></details>
+ <div id="mall-login" class="mall-empty" hidden><p>登录后查看今日为你挑选的五张照片。</p><button type="button" id="mall-login-button">登录照片集</button></div>
+ <div id="mall-items" class="mall-items" aria-label="今日照片与个人库存"></div>
+ <p id="mall-empty" class="mall-empty" hidden></p><button type="button" id="mall-more" class="mall-more" hidden>加载更多库存</button>
+ <details class="contest-rules"><summary>收藏规则</summary><p>每个账号每天固定随机五张。每个位置先按普通85%、史诗10%、传奇5%抽取稀有度，再在该类中随机选一张；该类已集齐或为空时按剩余权重分配，五张不重复。升级前已生成的今日照片保持不变，新货架使用新概率。刷新不会更换；候选不足五张时按实际数量显示。普通10积分、史诗20积分、传奇30积分，已收藏的照片不重复扣分，购买不可撤销。三种收藏进度分别统计全库存，含本人已购但原图被移除的记录；照片重新分级后进度同步调整。库存跟随登录账号保存，不随关联账号合并。原相册仍可公开浏览；原作者删除照片后保留购买记录，图片不再可查看。</p></details>
 </section>
+<dialog id="mall-photo-dialog" class="mall-photo-dialog" aria-labelledby="mall-photo-title"><div class="mall-photo-heading"><h2 id="mall-photo-title"></h2><button type="button" id="mall-photo-close" aria-label="关闭照片">×</button></div><span id="mall-photo-rarity" class="mall-rarity"></span><div id="mall-photo-frame" class="mall-photo-frame"><img id="mall-photo-image" alt=""></div><p id="mall-photo-caption"></p><p id="mall-photo-author"></p></dialog>

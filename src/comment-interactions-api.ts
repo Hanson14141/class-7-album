@@ -13,7 +13,7 @@ async function commentInteractionRoute(request:Request,parts:string[],url:URL,me
   const photoId=parts[1];await requirePhoto(photoId);
   if(method==='GET'){
    const hash=await ownerHash(request),cursor=decodeCursor(url.searchParams.get('cursor'));
-   let query='SELECT c.id,c.photo_id,class7_test.canonical_owner(c.owner_hash) AS owner_hash,c.author,c.author_username,c.body,c.created_at,c.reply_to_id,c.reply_to_author,p.body AS parent_body FROM comments c LEFT JOIN comments p ON p.id=c.reply_to_id WHERE c.photo_id=?';
+   let query='SELECT c.id,c.photo_id,class7_test.canonical_owner(c.owner_hash) AS owner_hash,c.author,c.author_username,c.body,c.created_at,c.reply_to_id,c.reply_to_author,c.emoji_photo_id,c.emoji_title,(emoji.id IS NOT NULL) AS emoji_available,emoji.uploader AS emoji_uploader,emoji.caption AS emoji_caption,emoji.width AS emoji_width,emoji.height AS emoji_height,emoji.rotation AS emoji_rotation,p.body AS parent_body FROM comments c LEFT JOIN comments p ON p.id=c.reply_to_id LEFT JOIN photos emoji ON emoji.id=c.emoji_photo_id WHERE c.photo_id=?';
    const args:unknown[]=[photoId];
    const focus=url.searchParams.get('focus');
    if(focus){if(!uuid.test(focus))throw new ApiError(400,'留言定位信息无效。');const target=await database().prepare('SELECT id,created_at FROM comments WHERE id=? AND photo_id=?').bind(focus,photoId).first<{id:string;created_at:string}>();if(!target)throw new ApiError(404,'这条留言已被删除。');query+=' AND (c.created_at<? OR (c.created_at=? AND c.id<=?))';args.push(target.created_at,target.created_at,target.id);}
@@ -22,20 +22,22 @@ async function commentInteractionRoute(request:Request,parts:string[],url:URL,me
    const results=await database().batch([database().prepare(query).bind(...args),database().prepare('SELECT count(*) AS n FROM comments WHERE photo_id=?').bind(photoId)]);
    const found=results[0].results as CommentInteractionRow[],rows=found.slice(0,50),ids=rows.map(row=>row.id);
    const byId=await commentLikeStates(ids,hash);
-   return response({comments:rows.reverse().map(row=>{const state=byId.get(row.id);return {id:row.id,author:row.author,body:row.body,createdAt:row.created_at,mine:class7OwnerMatch(row.owner_hash,hash),replyToId:row.reply_to_id,replyToAuthor:row.reply_to_author,replyToBody:row.parent_body,likeCount:state?.likeCount||0,weeklyCount:state?.weeklyCount||0,liked:state?.liked===true};}),focused:focus||null,total:Number((results[1].results[0] as any)?.n)||0,nextCursor:found.length>50?encodeCursor(found[49]):null});
+   return response({comments:rows.reverse().map(row=>{const state=byId.get(row.id);return {id:row.id,author:row.author,body:row.body,emoji:commentEmojiView(row),createdAt:row.created_at,mine:class7OwnerMatch(row.owner_hash,hash),replyToId:row.reply_to_id,replyToAuthor:row.reply_to_author,replyToBody:row.parent_body,likeCount:state?.likeCount||0,weeklyCount:state?.weeklyCount||0,liked:state?.liked===true};}),focused:focus||null,total:Number((results[1].results[0] as any)?.n)||0,nextCursor:found.length>50?encodeCursor(found[49]):null});
   }
   if(method==='POST'){
-   const account=await requireAccount(request),current=await requireAccountProfile(request),data=await jsonBody(request),body=shortText(data?.body,1000,true);
+   const account=await requireAccount(request),current=await requireAccountProfile(request),data=await jsonBody(request),body=shortText(data?.body??'',1000),emojiInventoryId=data?.emojiInventoryId||null;
+   if(emojiInventoryId!==null&&(typeof emojiInventoryId!=='string'||!uuid.test(emojiInventoryId)))throw new ApiError(400,'照片表情无效。');
+   if(!body&&!emojiInventoryId)throw new ApiError(400,'请填写留言或选择一个照片表情。');
    const replyToId=data?.replyToId||null;
    if(replyToId!==null&&(!uuid.test(replyToId)||typeof replyToId!=='string'))throw new ApiError(400,'回复目标无效。');
    let parent:{author:string}|null=null;
    if(replyToId){parent=await database().prepare('SELECT author FROM comments WHERE id=? AND photo_id=?').bind(replyToId,photoId).first<{author:string}>();if(!parent)throw new ApiError(409,'原留言已被删除，请刷新后再回复。');}
    const id=crypto.randomUUID(),now=new Date().toISOString();
    // The photo and parent are checked again in the INSERT, so a concurrent delete cannot make an orphan reply.
-   const results=await database().batch([database().prepare('INSERT INTO comments(id,photo_id,owner_hash,author,author_username,body,created_at,reply_to_id,reply_to_author) SELECT ?,p.id,?,?,?,?,?,?,? FROM photos p WHERE p.id=? AND (?::text IS NULL OR EXISTS(SELECT 1 FROM comments c WHERE c.id=? AND c.photo_id=p.id)) RETURNING id').bind(id,current.write_owner_hash,current.nickname,account.username,body,now,replyToId,parent?.author||null,photoId,replyToId,replyToId),database().prepare('SELECT class7_test.award_points(?,?,?) AS result WHERE EXISTS(SELECT 1 FROM comments WHERE id=?)').bind(account.id,'comment','comment:'+id,id)]);
+   const results=await database().batch([database().prepare('INSERT INTO comments(id,photo_id,owner_hash,author,author_username,body,created_at,reply_to_id,reply_to_author,emoji_photo_id,emoji_title) SELECT ?,p.id,?,?,?,?,?,?,?,e.photo_id,e.title FROM photos p LEFT JOIN (SELECT i.photo_id,i.title FROM class7_test.mall_photo_inventory i JOIN photos source ON source.id=i.photo_id WHERE i.id=?::uuid AND i.account_id=?) e ON true WHERE p.id=? AND (?::text IS NULL OR EXISTS(SELECT 1 FROM comments c WHERE c.id=? AND c.photo_id=p.id)) AND (?::uuid IS NULL OR e.photo_id IS NOT NULL) RETURNING id,emoji_photo_id,emoji_title').bind(id,current.write_owner_hash,current.nickname,account.username,body,now,replyToId,parent?.author||null,emojiInventoryId,account.id,photoId,replyToId,replyToId,emojiInventoryId),database().prepare('SELECT class7_test.award_points(?,?,?) AS result WHERE EXISTS(SELECT 1 FROM comments WHERE id=?)').bind(account.id,'comment','comment:'+id,id)]);
    const inserted=results[0].results[0],points=normalizePoints((results[1].results[0] as any)?.result);
-   if(!inserted)throw new ApiError(409,'照片或原留言已被删除，请刷新后再试。');
-   return response({comment:{id,author:current.nickname,authorUsername:account.username,body,createdAt:now,mine:true,replyToId,replyToAuthor:parent?.author||null,likeCount:0,liked:false},points},201);
+   if(!inserted)throw new ApiError(409,'照片、原留言或库存表情已不可用，请刷新后再试。');
+   return response({comment:{id,author:current.nickname,authorUsername:account.username,body,emoji:(inserted as any).emoji_photo_id?{photoId:(inserted as any).emoji_photo_id,title:(inserted as any).emoji_title,available:true,src:'/api/files/'+encodeURIComponent((inserted as any).emoji_photo_id)}:null,createdAt:now,mine:true,replyToId,replyToAuthor:parent?.author||null,likeCount:0,liked:false},points},201);
   }
  }
  if(parts[0]==='comments'&&parts.length===3&&parts[2]==='likes'){
@@ -63,8 +65,8 @@ async function commentInteractionRoute(request:Request,parts:string[],url:URL,me
   if(method==='GET'){
    const seen=await database().prepare('SELECT seen_at FROM reply_inbox_seen WHERE account_id=?').bind(account.id).first<{seen_at:string}>(),since=seen?.seen_at||'1970-01-01T00:00:00.000Z';
    const condition=' FROM comments r JOIN comments parent ON parent.id=r.reply_to_id JOIN photos p ON p.id=r.photo_id LEFT JOIN accounts actor ON actor.owner_hash=r.owner_hash WHERE class7_test.canonical_owner(parent.owner_hash)=? AND class7_test.canonical_owner(r.owner_hash)<>?';
-   const result=await database().batch([database().prepare('SELECT r.id,r.photo_id,r.author,r.author_username,r.body,r.created_at,parent.author AS parent_author,parent.body AS parent_body,p.title AS photo_title,actor.username AS actor_username'+condition+' ORDER BY r.created_at DESC,r.id DESC LIMIT 30').bind(account.owner_hash,account.owner_hash),database().prepare('SELECT count(*) AS n'+condition+' AND r.created_at>?').bind(account.owner_hash,account.owner_hash,since)]);
-   return response({items:(result[0].results as any[]).map(row=>({id:row.id,photoId:row.photo_id,author:row.author,authorUsername:row.author_username||row.actor_username||'',body:row.body,createdAt:row.created_at,parentAuthor:row.parent_author,parentBody:row.parent_body,photoTitle:row.photo_title})),unread:Number((result[1].results[0] as any)?.n)||0});
+   const result=await database().batch([database().prepare('SELECT r.id,r.photo_id,r.author,r.author_username,r.body,r.emoji_photo_id,r.created_at,parent.author AS parent_author,parent.body AS parent_body,p.title AS photo_title,actor.username AS actor_username'+condition+' ORDER BY r.created_at DESC,r.id DESC LIMIT 30').bind(account.owner_hash,account.owner_hash),database().prepare('SELECT count(*) AS n'+condition+' AND r.created_at>?').bind(account.owner_hash,account.owner_hash,since)]);
+   return response({items:(result[0].results as any[]).map(row=>({id:row.id,photoId:row.photo_id,author:row.author,authorUsername:row.author_username||row.actor_username||'',body:row.body||(row.emoji_photo_id?'[照片表情]':''),createdAt:row.created_at,parentAuthor:row.parent_author,parentBody:row.parent_body,photoTitle:row.photo_title})),unread:Number((result[1].results[0] as any)?.n)||0});
   }
  }
  throw new ApiError(404,'没有找到这个接口。');

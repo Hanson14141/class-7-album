@@ -11,7 +11,7 @@ function renderComments(){
   const article=document.createElement('article');article.className='comment';article.id='comment-'+item.id;if(item.replyToId)article.classList.add('is-reply');if(commentFocus?.id===item.id)article.classList.add('comment-focused');
   const head=document.createElement('div');head.className='comment-head';const author=document.createElement('strong');author.textContent=item.author;const time=document.createElement('time');time.dateTime=item.createdAt;time.textContent=commentTime(item.createdAt);head.append(author,time);article.append(head);
   if(item.replyToAuthor){const context=document.createElement('div');context.className='comment-reply-context';context.textContent='回复 '+item.replyToAuthor+(item.replyToBody?' · '+item.replyToBody.slice(0,70):'');article.append(context);}
-  const body=document.createElement('p');body.textContent=item.body;article.append(body);
+  const body=document.createElement('p');body.textContent=item.body;if(item.body)article.append(body);const emoji=commentEmojiNode(item.emoji);if(emoji)article.append(emoji);
   const tools=document.createElement('div');tools.className='comment-tools';
   tools.append(makeCommentLikeButton(item));
   const reply=document.createElement('button');reply.type='button';reply.className='comment-tool';reply.textContent='回复';reply.addEventListener('click',()=>chooseCommentReply(item));tools.append(reply);

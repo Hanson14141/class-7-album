@@ -1,0 +1,9 @@
+/* Phone, touch and reduced-motion layouts receive no card transforms or shine. */
+@media(min-width:701px) and (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
+ .mall-card{position:relative;transform:perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0) scale(1);transition:transform .18s ease-out,box-shadow .22s ease,border-color .22s ease;transform-origin:center;z-index:0}
+ .mall-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at var(--card-light-x,50%) var(--card-light-y,50%),rgba(255,255,255,.2),transparent 65%);opacity:0;transition:opacity .2s ease}
+ .mall-card.is-hovered{transform:perspective(900px) rotateX(var(--card-rx,0deg)) rotateY(var(--card-ry,0deg)) translateY(-4px) scale(1.025);box-shadow:0 14px 32px rgba(0,0,0,.13);border-color:var(--muted);will-change:transform;z-index:2}
+ .mall-card.is-hovered::after{opacity:1}
+ [data-theme="dark"] .mall-card.is-hovered{box-shadow:0 14px 32px rgba(0,0,0,.32)}
+ [data-theme="dark"] .mall-card::after{background:radial-gradient(circle at var(--card-light-x,50%) var(--card-light-y,50%),rgba(255,255,255,.12),transparent 65%)}
+}

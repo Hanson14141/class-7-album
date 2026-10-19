@@ -1,38 +1,7 @@
 const fs=require('node:fs');const path=require('node:path');
 const root=__dirname,old=path.join(root,'baseline');
 fs.mkdirSync(path.join(root,'src'),{recursive:true});fs.mkdirSync(path.join(root,'public'),{recursive:true});
-// Mall goods are edited by co-developers as mall-goods/*.json; prices are server-trusted.
-const mallDir=path.join(root,'mall-goods'),mallItemIds=new Set(),mallImageCopies=new Map();
-const realMallDir=fs.realpathSync(mallDir);
-const mallItems=fs.readdirSync(mallDir).filter(name=>name.endsWith('.json')).sort().map(name=>{
- let item;try{item=JSON.parse(fs.readFileSync(path.join(mallDir,name),'utf8'));}catch{throw Error('mall-goods/'+name+' 不是合法的 JSON');}
- const where='mall-goods/'+name+': ';
- if(item.id!==name.slice(0,-5)||!/^[a-z0-9][a-z0-9-]{0,60}$/.test(item.id))throw Error(where+'id 必须与文件名一致，且只含小写字母、数字和连字符');
- if(mallItemIds.has(item.id))throw Error(where+'id 与其他商品重复');
- mallItemIds.add(item.id);
- if(typeof item.name!=='string'||!item.name.trim()||item.name.length>40)throw Error(where+'name 需为 40 字以内文本');
- if(typeof item.description!=='string'||!item.description.trim()||item.description.length>200)throw Error(where+'description 需为 200 字以内文本');
- if(!Number.isSafeInteger(item.price)||item.price<1||item.price>1000000)throw Error(where+'price 需为正整数积分');
- if(item.stock!=null&&(!Number.isSafeInteger(item.stock)||item.stock<1))throw Error(where+'stock 需为正整数，或省略表示不限量');
- if(item.images!=null&&(!Array.isArray(item.images)||item.images.length>8))throw Error(where+'images 需为最多 8 张图片的数组');
- const images=(item.images||[]).map((image,index)=>{
-  const imageWhere=where+'images['+index+']: ';
-  if(!image||typeof image.src!=='string'||typeof image.alt!=='string'||!image.alt.trim()||image.alt.length>100)throw Error(imageWhere+'需提供图片路径和 100 字以内替代文本');
-  const parts=image.src.split('/');
-  if(!image.src.startsWith('images/')||image.src.includes('\\')||parts.some(part=>!part||part==='.'||part==='..')||!/\\.(?:avif|jpe?g|png|webp)$/i.test(image.src))throw Error(imageWhere+'src 需为 mall-goods/images/ 下的 JPG、PNG、WebP 或 AVIF 相对路径');
-  const imagePath=path.resolve(realMallDir,image.src);
-  if(!imagePath.startsWith(realMallDir+path.sep)||!fs.existsSync(imagePath)||!fs.statSync(imagePath).isFile())throw Error(imageWhere+'图片文件不存在或路径无效');
-  const realImagePath=fs.realpathSync(imagePath);
-  if(!realImagePath.startsWith(realMallDir+path.sep))throw Error(imageWhere+'图片文件不能指向 mall-goods/ 目录之外');
-  const outputPath=path.join(root,'public','mall-images',item.id,...parts.slice(1));
-  mallImageCopies.set(realImagePath,outputPath);
-  return {src:'/mall-images/'+item.id+'/'+parts.slice(1).join('/'),alt:image.alt.trim()};
- });
- return {id:item.id,name:item.name.trim(),description:item.description.trim(),price:item.price,stock:item.stock??null,enabled:item.enabled!==false,images};
-}).sort((a,b)=>a.price-b.price||a.id.localeCompare(b.id));
-const mallManifest=JSON.stringify(mallItems);
 for(const name of ['app.js','editorial.css','favicon.svg'])fs.copyFileSync(path.join(old,'public',name),path.join(root,'public',name));
-for(const [source,target] of mallImageCopies){fs.mkdirSync(path.dirname(target),{recursive:true});fs.copyFileSync(source,target);}
 fs.copyFileSync(path.join(root,'src/photo-compression.js'),path.join(root,'public/photo-compression.js'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/upload-compression.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/usage-notice.css'),'utf8'));
@@ -48,7 +17,7 @@ fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(pa
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/comment-interactions.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/comment-contest.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/checkin-points.css'),'utf8'));
-fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/mall.css'),'utf8'));
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/mall.css'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/comment-emoji.css'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/mall-collection.css'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/mall-card-hover.css'),'utf8'));
 let browserApp=fs.readFileSync(path.join(root,'public/app.js'),'utf8').replace(/\r\n/g,'\n');
 browserApp="async function cloudFetch(url,options){for(let retry=0;;retry++){const result=await fetch(url,options);if(result.status!==429||retry>=4)return result;await result.body?.cancel();await new Promise(resolve=>setTimeout(resolve,700*2**retry+Math.random()*250));}}\n"+browserApp;
 browserApp=browserApp.replace("const result=await fetch('/api'+path,{...options,headers,credentials:'same-origin'});", "const result=await cloudFetch('/api'+path,{...options,headers,credentials:'same-origin'});");
@@ -155,7 +124,7 @@ browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(ro
 if(!browserApp.includes('function renderCommentsLegacy()')||!browserApp.includes('replyToId:commentReplyTarget?.id'))throw Error('Comment UI hooks changed');
 browserApp=browserApp.replace('async function loadComments(older=false){','async function loadCommentsLegacy(older=false){');
 browserApp=browserApp.replace('function updateProfile(){','function updateProfile(){\n  refreshCommentBoardIdentity();');
-browserApp=browserApp.replace('return app.playing&&!app.hoverPaused', 'return !app.commentBoardOpen&&app.playing&&!app.hoverPaused');
+browserApp=browserApp.replace('return app.playing&&!app.hoverPaused', 'return !app.mallOpen&&!app.commentBoardOpen&&app.playing&&!app.hoverPaused');
 browserApp=browserApp.replace("for(const button of $$('.nav-tab'))button.addEventListener('click',()=>{if(app.bulkBusy)return;",()=>"for(const button of $$('.nav-tab'))button.addEventListener('click',()=>{if(app.bulkBusy)return;closeCommentBoard();");
 browserApp=browserApp.replace('resetCommentReply();app.commentPhoto=photo.id;', 'if(commentFocus?.photoId!==photo.id)commentFocus=null;resetCommentReply();app.commentPhoto=photo.id;');
 browserApp=browserApp.replace('resetCommentReply();await loadComments();','resetCommentReply();commentFocus=null;await loadComments();');
@@ -163,7 +132,13 @@ browserApp=browserApp.replace("$('#refresh-comments').addEventListener('click',(
 browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/comment-contest-ui.js'),'utf8')+'\ninit();');
 browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/checkin-points-ui.js'),'utf8')+'\ninit();');
 if(!browserApp.includes('async function loadCommentsLegacy')||!browserApp.includes('!app.commentBoardOpen&&app.playing'))throw Error('Comment contest hooks changed');
-browserApp=browserApp.replace('\ninit();',()=> '\nconst MALL_ITEMS='+mallManifest+';\n'+fs.readFileSync(path.join(root,'src/mall-ui.js'),'utf8')+'\ninit();');
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/mall-collection-ui.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/mall-card-hover.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/mall-ui.js'),'utf8')+'\ninit();');
+browserApp=browserApp.replace('if(!body||!id)return;', 'if((!body&&!commentEmojiSelection)||!id)return;');
+browserApp=browserApp.replace('json:{body,replyToId:commentReplyTarget?.id||null}', 'json:{body,replyToId:commentReplyTarget?.id||null,emojiInventoryId:commentEmojiSelection?.inventoryId||null}');
+browserApp=browserApp.replaceAll('resetCommentReply();app.commentPhoto=photo.id;', 'resetCommentEmoji();resetCommentReply();app.commentPhoto=photo.id;');
+browserApp=browserApp.replace('resetCommentReply();commentFocus=null;await loadComments();', 'resetCommentEmoji();resetCommentReply();commentFocus=null;await loadComments();');
+browserApp=browserApp.replace('function updateProfile(){','function updateProfile(){\n resetCommentEmojiIdentity();');
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/comment-emoji-ui.js'),'utf8')+'\ninit();');
 browserApp=browserApp.replace('return data;}', 'if(data.points&&requestGeneration===ownershipGeneration)document.dispatchEvent(new CustomEvent("class7:points",{detail:data.points}));return data;}');
 fs.writeFileSync(path.join(root,'public/app.js'),browserApp);
 fs.cpSync(path.join(old,'public/fonts'),path.join(root,'public/fonts'),{recursive:true});
@@ -173,7 +148,7 @@ html=html.replace('<div class="wall-shell"', '<p id="ranking-note" class="rankin
 html=html.replace('</nav>','<button type="button" class="contest-nav" id="weekly-contest-nav">每周大赛</button></nav>');
 html=html.replace('</nav>','<button type="button" class="contest-nav comment-contest-nav" id="comment-contest-nav">这期神了</button></nav>');
 html=html.replace('</nav>','<button type="button" class="contest-nav mall-nav" id="mall-nav">商城</button></nav>');
-html=html.replace('<section class="gallery-section"',fs.readFileSync(path.join(root,'src/mall.html'),'utf8')+'<section class="gallery-section"');
+html=html.replace('<section class="gallery-section"',fs.readFileSync(path.join(root,'src/mall.html'),'utf8').replace('<p id="mall-status"',()=>fs.readFileSync(path.join(root,'src/mall-collection.html'),'utf8')+'<p id="mall-status"')+'<section class="gallery-section"');
 html=html.replace('<section class="gallery-section"',fs.readFileSync(path.join(root,'src/comment-contest.html'),'utf8')+'<section class="gallery-section"');
 html=html.replace('<option value="likes">点赞排行</option>','<option value="likes">点赞排行</option><option value="weekly">每周大赛</option>');
 html=html.replace('<div class="gallery-toolbar">',fs.readFileSync(path.join(root,'src/weekly-contest.html'),'utf8')+'<div class="gallery-toolbar">');
@@ -203,6 +178,7 @@ html=html.replace('<script src="./app.js" defer></script>','<script src="./photo
 html=html.replaceAll('下载原图','下载照片').replaceAll('原图，保留原始清晰度','照片').replaceAll('保留原始清晰度','保存网站中的照片').replaceAll('打开原图','打开照片');
 html=html.replace('<button class="profile-button" id="profile-button"','<button type="button" id="checkin-button" class="checkin-button"><span id="checkin-label">签到</span><span id="points-badge" class="points-badge" hidden></span></button><button type="button" id="reply-inbox-button" class="reply-inbox-button" hidden>回复我的 <span id="reply-badge" class="reply-badge" hidden></span></button><button class="profile-button" id="profile-button"');
 html=html.replace('<form id="comment-form">','<div id="comment-reply-target" class="comment-reply-target" hidden><span id="comment-reply-target-name"></span><button type="button" id="cancel-comment-reply">取消</button></div><form id="comment-form">');
+html=html.replace('<div class="comment-actions">',fs.readFileSync(path.join(root,'src/comment-emoji.html'),'utf8')+'<div class="comment-actions">');
 html=html.replace('<div id="comment-list"','<button type="button" class="text-button" id="latest-comments" hidden>查看最新留言 →</button><div id="comment-list"');
 html=html.replace('<div class="toast" id="toast"',fs.readFileSync(path.join(root,'src/comment-interactions.html'),'utf8')+'<div class="toast" id="toast"');
 const staticOrigin='https://class7-memory-d0gcpjaqu47530c54-1509361747.tcloudbaseapp.com/';
@@ -253,7 +229,7 @@ api=api.replace('.bind(id,photoId,current.device_hash,current.nickname,body,now)
 const interactionHook="  if(parts[0]==='account'&&parts.length===2)return await accountAction(request,parts[1],jsonBody);";
 if(!api.includes(interactionHook))throw Error('Interaction API hook changed');
 api=api.replace(interactionHook,interactionHook+"\n  if((parts[0]==='photos'&&((parts.length===2&&method==='GET')||(parts.length===3&&parts[2]==='comments')))||(parts[0]==='comments'&&parts.length===3&&parts[2]==='likes')||(parts[0]==='replies'&&parts.length===2&&parts[1]==='inbox'))return await commentInteractionRoute(request,parts,url,method);");
-api+='\n'+fs.readFileSync(path.join(root,'src/comment-interactions-api.ts'),'utf8');
+api+='\n'+fs.readFileSync(path.join(root,'src/comment-interactions-api.ts'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/comment-emoji-api.ts'),'utf8');
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='comment-board'&&parts.length===1&&method==='GET')return await commentContestPhotos(request,url);");
 api+='\n'+fs.readFileSync(path.join(root,'src/comment-contest-api.ts'),'utf8');
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='checkin'&&parts.length===1)return await checkinRoute(request,method);");
@@ -262,7 +238,8 @@ api+='\n'+fs.readFileSync(path.join(root,'src/checkin-points-api.ts'),'utf8');
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts.length===1&&method==='GET')return await mallItemsRoute(request);");
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts.length===2&&parts[1]==='redeem'&&method==='POST')return await mallRedeemRoute(request,await jsonBody(request));");
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts.length===2&&parts[1]==='redemptions'&&method==='GET')return await mallRedemptionsRoute(request);");
-api+='\nconst MALL_ITEMS='+mallManifest+';\n'+fs.readFileSync(path.join(root,'src/mall-api.ts'),'utf8');
+api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts.length===2&&parts[1]==='inventory'&&method==='GET')return await mallInventoryRoute(request);");
+api+='\n'+fs.readFileSync(path.join(root,'src/mall-api.ts'),'utf8');
 if(!api.includes('mallRedeemRoute')||!browserApp.includes('openMall'))throw Error('Mall hooks changed');
 fs.writeFileSync(path.join(root,'src/photo-api.ts'),api);
 let accounts=fs.readFileSync(path.join(old,'lib/accounts.ts'),'utf8').replace("from 'cloudflare:workers'","from './platform'");

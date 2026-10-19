@@ -89,3 +89,18 @@ npx tcb fn deploy class7-photo-api --httpFn --force --install-dependency true --
 新的 API 使用 set_photo_like_with_points 与 set_comment_like_with_points 包装已有每周点赞函数，点赞与积分原子保存；评论与奖励同样在现有批处理事务内提交。每周仍可重赞，但同一账号每张照片/评论的奖励终身最多一次。原来的周榜、评论及账号关系沿用，积分本身按登录账号独立，不因照片账号关联而合并。
 
 先安装当前评论周榜等既有迁移，最后再安装签到积分迁移。新环境 schema.sql 已包含两者。服务端凭证和原存储配置继续使用本机私有配置，不从下载的ZIP导入，也不在Git提交中提供。发布后核对签到入口、个人积分、重复签到、北京零点、七天奖励、评论每日50分上限、点赞奖励去重及前后端资产哈希；业务写入验证优先使用隔离测试数据。
+
+
+### 每日照片商城与库存表情
+
+在现有签到积分环境依次应用尚未安装的 apply-mall.cjs、apply-photo-mall.cjs 和 apply-comment-emoji.cjs，不能重复全量初始化。迁移前后校验已有数据，旧商品记录保留。构建后同时部署静态与HTTP函数，不加--path。当前环境已经完成这些迁移；只改界面不需要重跑。旧mall-goods清单已停用。验证详情与边界见根目录UPDATE_NOTES.md。
+
+
+### 照片稀有度与收藏进度
+
+已安装每日照片商城的环境最后运行 `node scripts/apply-photo-rarity.cjs`，再构建并部署前后端。若重跑旧photo-mall迁移，必须再应用photo-rarity；不要重初始化真实数据库。photo_rarities由环境所有者维护，示例命令 `node scripts/set-photo-rarity.cjs /absolute/path/to/.private/tiers.json`，格式和验证边界见UPDATE_NOTES.md。源码包不携带线上个人分类清单、照片或账号。成就门槛改为20/40/60张。
+
+
+### 2026-10-20 掉率和分级定价
+
+再次应用photo-rarity增量，更新普通85/史诗10/传奇5概率及10/20/30积分定价；库存价格约束允许10、20、30，旧记录不变。新API调用五参数buy_mall_photo并验证客户端确认价格；四参数旧接口只提示刷新。最后构建并同步发布静态与HTTP函数。迁移前后仍校验既有照片、账号、票数、积分和库存。

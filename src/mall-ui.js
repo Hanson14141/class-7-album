@@ -1,74 +1,45 @@
-// Points mall; goods come from the build-time MALL_ITEMS manifest (mall-goods/).
-const mallState={items:[],totalPoints:null,history:[],loading:false,epoch:0,identity:null};
-function syncMallNav(){
- const open=!!app.mallOpen,nav=$('#mall-nav');nav.classList.toggle('active',open);if(open){nav.setAttribute('aria-current','page');for(const item of $$('.nav-tab,#weekly-contest-nav,#comment-contest-nav')){item.classList.remove('active');item.removeAttribute('aria-current');}}else nav.removeAttribute('aria-current');
-}
-function closeMall(){if(!app.mallOpen)return;app.mallOpen=false;document.body.classList.remove('mall-board-mode');$('#mall-board').hidden=true;mallState.epoch++;mallState.loading=false;syncMallNav();updateTabs();applyContestLayout();refreshWallMotion();}
-async function openMall(){if(app.bulkBusy)return;closeCommentBoard();app.mallOpen=true;app.selecting=false;app.selected.clear();updateBulkUI();document.body.classList.add('mall-board-mode');$('#mall-board').hidden=false;syncMallNav();refreshWallMotion();await loadMall();}
+const mallRarities=[{key:'common',label:'普通'},{key:'epic',label:'史诗'},{key:'legendary',label:'传奇'}];
+function mallRarity(value){return mallRarities.find(x=>x.key===value)||mallRarities[0];}
+// On-demand daily shop and private paginated photo collection.
+const mallState={mode:'shop',items:[],inventory:[],cursor:null,totalPoints:null,total:0,summaryLoaded:false,collection:[],day:null,nextReset:null,loading:false,epoch:0,identity:null,buying:false,requests:new Map(),timer:null};
+function syncMallNav(){const open=!!app.mallOpen,nav=$('#mall-nav');nav.classList.toggle('active',open);if(open){nav.setAttribute('aria-current','page');for(const item of $$('.nav-tab,#weekly-contest-nav,#comment-contest-nav')){item.classList.remove('active');item.removeAttribute('aria-current');}}else nav.removeAttribute('aria-current');}
+function closeMall(){if(!app.mallOpen)return;resetMallCardHover();app.mallOpen=false;document.body.classList.remove('mall-board-mode');$('#mall-board').hidden=true;mallState.epoch++;mallState.loading=false;clearTimeout(mallState.timer);syncMallNav();updateTabs();applyContestLayout();refreshWallMotion();}
+async function openMall(){if(app.bulkBusy)return;closeCommentBoard();app.mallOpen=true;app.selecting=false;app.selected.clear();updateBulkUI();document.body.classList.add('mall-board-mode');$('#mall-board').hidden=false;applyContestLayout();syncMallNav();refreshWallMotion();await loadMall();}
 function mallStatus(message,error=false){const p=$('#mall-status');p.textContent=message;p.hidden=!message;p.classList.toggle('is-error',error);}
-function mallTime(value){return new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'numeric',day:'numeric'}).format(new Date(value));}
-function renderMallPoints(){const signed=!!app.account?.signedIn;$('#mall-points').textContent=signed?String(Math.max(0,Number(mallState.totalPoints)||0)):'—';$('#mall-points').parentElement.title=signed?'当前可用积分':'登录后显示我的积分';}
-function renderMallItems(){
- const signed=!!app.account?.signedIn,total=Math.max(0,Number(mallState.totalPoints)||0),wrap=$('#mall-items');wrap.replaceChildren();
- $('#mall-empty').hidden=mallState.loading||mallState.items.length>0;
- for(const item of mallState.items){
-  const card=document.createElement('article');card.className='mall-card';
-  if(item.images?.length){
-   const images=document.createElement('div');images.className='mall-card-images';
-   for(const image of item.images){const img=document.createElement('img');img.src=image.src;img.alt=image.alt;img.loading='lazy';img.decoding='async';img.draggable=false;images.append(img);}
-   card.append(images);
-  }
-  const name=document.createElement('h3');name.textContent=item.name;
-  const desc=document.createElement('p');desc.className='mall-card-desc';desc.textContent=item.description;
-  const meta=document.createElement('div');meta.className='mall-card-meta';
-  const price=document.createElement('p');price.className='mall-price';price.textContent=String(item.price);const unit=document.createElement('small');unit.textContent='积分';price.append(unit);
-  const stock=document.createElement('span');stock.className='mall-stock';const soldOut=item.remaining===0;stock.textContent=item.remaining==null?'不限量':soldOut?'已兑完':'仅剩 '+item.remaining+' 份';
-  meta.append(price,stock);
-  const button=document.createElement('button');button.type='button';button.className='mall-redeem';
-  button.disabled=soldOut||(signed&&total<item.price);
-  button.textContent=soldOut?'已兑完':!signed?'登录后兑换':total<item.price?'积分不足':'兑换';
-  button.setAttribute('aria-label','兑换 '+item.name+'，需要 '+item.price+' 积分');
-  button.addEventListener('click',()=>redeemMallItem(item,button));
-  card.append(name,desc,meta,button);wrap.append(card);
- }
+function renderMallPoints(){const signed=!!app.account?.signedIn;$('#mall-points').textContent=signed?String(Math.max(0,Number(mallState.totalPoints)||0)):'—';$('#mall-inventory-count').textContent=mallState.total;}
+function mallPicture(photo){const frame=document.createElement('button');frame.type='button';frame.className='mall-picture';frame.setAttribute('aria-label','查看照片：'+photo.title);frame.disabled=!photo.available;if(photo.available&&photo.src){const image=document.createElement('img');image.loading='lazy';image.decoding='async';image.alt=photo.title;image.addEventListener('load',()=>fitRotatedImage(image,photo,frame.clientWidth,frame.clientHeight),{once:true});image.src=photo.src;frame.append(image);frame.addEventListener('click',()=>showMallPhoto(photo));}else{frame.textContent='原照片已被移除';}return frame;}
+function renderMall(){
+ const signed=!!app.account?.signedIn,inventory=mallState.mode==='inventory';renderMallPoints();renderCollectionProgress();
+ $('#mall-shop-tab').setAttribute('aria-pressed',String(!inventory));$('#mall-inventory-tab').setAttribute('aria-pressed',String(inventory));$('#mall-login').hidden=signed;
+ $('#mall-day-note').textContent=inventory?'已购买的照片 · 仅自己可见':(mallState.day?mallState.day+' · ':'')+'普通 10 · 史诗 20 · 传奇 30 积分 · 零点更新';
+ const wrap=$('#mall-items');wrap.replaceChildren();const entries=signed?(inventory?mallState.inventory:mallState.items):[];
+ $('#mall-empty').hidden=!signed||mallState.loading||entries.length>0;$('#mall-empty').textContent=inventory?'库存还是空的，去今日照片挑选喜欢的瞬间。':'今天暂无可收藏的新照片。明天再来看看。';
+ $('#mall-more').hidden=!signed||!inventory||!mallState.cursor;$('#mall-more').disabled=mallState.loading;
+ for(const item of entries){const card=document.createElement('article');card.className='mall-card';card.dataset.rarity=mallRarity(item.rarity).key;card.append(mallPicture(item));const body=document.createElement('div');body.className='mall-card-body';const title=document.createElement('h3');title.textContent=item.title;const author=document.createElement('p');author.className='mall-card-desc';author.textContent='来自 '+item.uploader;const badge=document.createElement('span');badge.className='mall-rarity';badge.textContent=mallRarity(item.rarity).label;body.append(badge,title);if(item.caption){const caption=document.createElement('p');caption.className='mall-card-caption';caption.textContent=item.caption;body.append(caption);}body.append(author);
+ if(inventory){const label=document.createElement('p');label.className='mall-stock';label.textContent=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'numeric',day:'numeric'}).format(new Date(item.purchasedAt))+' 收藏 · '+item.price+' 积分';body.append(label);}else{const button=document.createElement('button');button.type='button';button.className='mall-redeem';button.disabled=mallState.buying||item.owned||Number(mallState.totalPoints)<item.price;button.textContent=item.owned?'已在库存':Number(mallState.totalPoints)<item.price?'积分不足 · '+item.price+' 积分':'收藏 · '+item.price+' 积分';button.addEventListener('click',()=>buyMallPhoto(item,button));body.append(button);}card.append(body);wrap.append(card);}
 }
-function renderMallHistory(){
- const signed=!!app.account?.signedIn,section=$('#mall-history'),list=$('#mall-history-list');
- section.hidden=!signed||!mallState.history.length;list.replaceChildren();
- for(const entry of mallState.history){
-  const row=document.createElement('li'),name=document.createElement('strong');name.textContent=entry.itemName+'（-'+entry.price+' 分）';
-  const time=document.createElement('span');time.textContent=mallTime(entry.createdAt);row.append(name,time);list.append(row);
- }
+function scheduleMallDay(){clearTimeout(mallState.timer);if(app.mallOpen&&mallState.nextReset){const delay=Date.parse(mallState.nextReset)-Date.now()+250;mallState.timer=setTimeout(()=>{if(app.mallOpen)loadMall();},Math.max(1000,Math.min(86400250,delay)));}}
+async function loadMall(older=false){
+ const epoch=++mallState.epoch,generation=ownershipGeneration;mallState.loading=true;mallStatus('正在读取…');renderMall();
+ if(!app.account?.signedIn){mallState.loading=false;mallStatus('');renderMall();return;}
+ try{const data=await api('/mall');if(epoch!==mallState.epoch||generation!==ownershipGeneration||!app.mallOpen)return;
+ mallState.items=data.items||[];mallState.day=data.day;mallState.nextReset=data.nextResetAt;mallState.totalPoints=data.totalPoints;mallState.total=data.inventoryTotal||0;mallState.collection=data.collection||[];mallState.summaryLoaded=true;
+ if(mallState.mode==='inventory'){const list=await api('/mall/inventory'+(older&&mallState.cursor?'?cursor='+encodeURIComponent(mallState.cursor):''));if(epoch!==mallState.epoch||generation!==ownershipGeneration||!app.mallOpen)return;mallState.inventory=older?[...mallState.inventory,...list.entries]:list.entries;mallState.cursor=list.nextCursor;mallState.total=list.total;}
+ mallState.loading=false;mallStatus('');renderMall();scheduleMallDay();return true;
+ }catch(error){if(epoch===mallState.epoch&&generation===ownershipGeneration){mallState.loading=false;mallStatus(error.message||'暂时无法读取，请稍后重试。',true);renderMall();}}
 }
-function renderMall(){renderMallPoints();renderMallItems();renderMallHistory();}
-async function loadMall(){
- const epoch=++mallState.epoch,generation=ownershipGeneration;
- mallState.loading=true;mallStatus('正在整理货架…');renderMall();
- try{
-  const data=await api('/mall');if(epoch!==mallState.epoch||!app.mallOpen)return;
-  if(generation!==ownershipGeneration){mallState.loading=false;loadMall();return;}
-  mallState.items=data.items||[];mallState.totalPoints=data.totalPoints;
-  if(app.account?.signedIn){const mine=await api('/mall/redemptions');if(epoch!==mallState.epoch||generation!==ownershipGeneration||!app.mallOpen)return;mallState.history=mine.redemptions||[];}else mallState.history=[];
-  mallState.loading=false;mallStatus('');renderMall();
- }catch(error){if(epoch===mallState.epoch){mallState.loading=false;renderMall();mallStatus(error.message||'商城暂时无法读取，请刷新重试。',true);}}
+async function buyMallPhoto(item,button){
+ if(mallState.buying)return;if(!app.account?.signedIn){openLogin(()=>loadMall());return;}
+ if(button.dataset.confirm!=='1'){button.dataset.confirm='1';button.textContent='确认收藏 · '+item.price+' 积分';setTimeout(()=>{if(button.isConnected&&button.dataset.confirm){delete button.dataset.confirm;button.textContent='收藏 · '+item.price+' 积分';}},3000);return;}
+ const previousTotal=mallState.total,generation=ownershipGeneration,day=mallState.day,key=generation+'|'+day+'|'+item.photoId;mallState.buying=true;renderMall();if(!mallState.requests.has(key))mallState.requests.set(key,crypto.randomUUID());
+ try{const result=await api('/mall/redeem',{method:'POST',json:{photoId:item.photoId,day,price:item.price,requestId:mallState.requests.get(key)}});if(generation!==ownershipGeneration)return;mallState.requests.delete(key);mallState.totalPoints=result.points.total;toast(result.alreadyOwned||result.duplicate?'这张照片已在库存中':'已加入我的库存，-'+result.price+' 积分');mallState.buying=false;const loaded=await loadMall();if(loaded&&generation===ownershipGeneration&&!result.alreadyOwned&&!result.duplicate)notifyCollectionMilestone(previousTotal,mallState.total);}
+ catch(error){if(generation!==ownershipGeneration)return;if(error.status&&error.status<500)mallState.requests.delete(key);toast(error.message||'购买结果暂时无法确认，请查看库存后重试。');mallState.buying=false;await loadMall();}
+ finally{if(generation===ownershipGeneration){mallState.buying=false;renderMall();}}
 }
-async function redeemMallItem(item,button){
- if(!app.account?.signedIn){openLogin(()=>{if(app.mallOpen)loadMall();});return;}
- if(button.dataset.confirm!=='1'){
-  button.dataset.confirm='1';button.textContent='确认兑换 -'+item.price+' 分';
-  setTimeout(()=>{if(button.isConnected&&button.dataset.confirm){delete button.dataset.confirm;renderMallItems();}},3000);return;
- }
- delete button.dataset.confirm;button.disabled=true;button.textContent='兑换中…';
- const generation=ownershipGeneration;
- try{
-  const data=await api('/mall/redeem',{method:'POST',json:{itemId:item.id}});if(generation!==ownershipGeneration)return;
-  mallState.totalPoints=data.points.total;toast('兑换成功：'+data.item.name+'，剩余 '+data.points.total+' 分');
-  await loadMall();
- }catch(error){if(generation!==ownershipGeneration)return;toast(error.message||'兑换失败，请重试。');await loadMall();}
-}
-function refreshMallIdentity(){const key=(app.account?.signedIn?app.account.username:'')+'|'+ownershipGeneration;if(mallState.identity===key)return;mallState.identity=key;if(!app.account?.signedIn){mallState.totalPoints=null;mallState.history=[];}if(app.mallOpen)loadMall();else renderMall();}
-$('#mall-nav').addEventListener('click',openMall);
-for(const button of $$('.nav-tab'))button.addEventListener('click',closeMall);
-$('#weekly-contest-nav').addEventListener('click',closeMall);
-$('#comment-contest-nav').addEventListener('click',closeMall);
-const mallProfileHook=updateProfile;updateProfile=function(){mallProfileHook();refreshMallIdentity();};
+function showMallPhoto(photo){if(!photo.available)return;$('#mall-photo-dialog').dataset.rarity=mallRarity(photo.rarity).key;$('#mall-photo-title').textContent=photo.title;$('#mall-photo-rarity').textContent=mallRarity(photo.rarity).label;$('#mall-photo-caption').textContent=photo.caption||'';$('#mall-photo-author').textContent='来自 '+photo.uploader;const image=$('#mall-photo-image'),frame=$('#mall-photo-frame');image.alt=photo.title;image.onload=()=>fitRotatedImage(image,photo,frame.clientWidth,frame.clientHeight);image.src=photo.src;showDialog('mall-photo-dialog');if(image.complete)fitRotatedImage(image,photo,frame.clientWidth,frame.clientHeight);}
+function refreshMallIdentity(){const key=(app.account?.signedIn?app.account.username:'')+'|'+ownershipGeneration;if(mallState.identity===key)return;mallState.identity=key;mallState.epoch++;mallState.items=[];mallState.inventory=[];mallState.cursor=null;mallState.totalPoints=null;mallState.total=0;mallState.collection=[];mallState.summaryLoaded=false;mallState.buying=false;mallState.requests.clear();$('#mall-photo-dialog').close();$('#mall-photo-image').removeAttribute('src');if(app.mallOpen)loadMall();else renderMall();}
+$('#mall-nav').addEventListener('click',openMall);for(const button of $$('.nav-tab'))button.addEventListener('click',closeMall);$('#weekly-contest-nav').addEventListener('click',closeMall);$('#comment-contest-nav').addEventListener('click',closeMall);
+$('#mall-shop-tab').addEventListener('click',()=>{mallState.mode='shop';loadMall();});$('#mall-inventory-tab').addEventListener('click',()=>{mallState.mode='inventory';loadMall();});$('#mall-more').addEventListener('click',()=>{if(!mallState.loading)loadMall(true);});$('#mall-login-button').addEventListener('click',()=>openLogin(()=>loadMall()));$('#mall-photo-close').addEventListener('click',()=>$('#mall-photo-dialog').close());
+const mallProfileHook=updateProfile;updateProfile=function(){mallProfileHook();refreshMallIdentity();};const mallLayoutHook=applyContestLayout;applyContestLayout=function(){mallLayoutHook();syncMallNav();};
+// One refresh when returning to an already-open shop; no polling or album downloads.
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&app.mallOpen&&!mallState.buying)loadMall();});
