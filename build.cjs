@@ -2,7 +2,8 @@ const fs=require('node:fs');const path=require('node:path');
 const root=__dirname,old=path.join(root,'baseline');
 fs.mkdirSync(path.join(root,'src'),{recursive:true});fs.mkdirSync(path.join(root,'public'),{recursive:true});
 // Mall goods are edited by co-developers as mall-goods/*.json; prices are server-trusted.
-const mallDir=path.join(root,'mall-goods'),mallItemIds=new Set();
+const mallDir=path.join(root,'mall-goods'),mallItemIds=new Set(),mallImageCopies=new Map();
+const realMallDir=fs.realpathSync(mallDir);
 const mallItems=fs.readdirSync(mallDir).filter(name=>name.endsWith('.json')).sort().map(name=>{
  let item;try{item=JSON.parse(fs.readFileSync(path.join(mallDir,name),'utf8'));}catch{throw Error('mall-goods/'+name+' 不是合法的 JSON');}
  const where='mall-goods/'+name+': ';
@@ -13,10 +14,25 @@ const mallItems=fs.readdirSync(mallDir).filter(name=>name.endsWith('.json')).sor
  if(typeof item.description!=='string'||!item.description.trim()||item.description.length>200)throw Error(where+'description 需为 200 字以内文本');
  if(!Number.isSafeInteger(item.price)||item.price<1||item.price>1000000)throw Error(where+'price 需为正整数积分');
  if(item.stock!=null&&(!Number.isSafeInteger(item.stock)||item.stock<1))throw Error(where+'stock 需为正整数，或省略表示不限量');
- return {id:item.id,name:item.name.trim(),description:item.description.trim(),price:item.price,stock:item.stock??null,enabled:item.enabled!==false};
+ if(item.images!=null&&(!Array.isArray(item.images)||item.images.length>8))throw Error(where+'images 需为最多 8 张图片的数组');
+ const images=(item.images||[]).map((image,index)=>{
+  const imageWhere=where+'images['+index+']: ';
+  if(!image||typeof image.src!=='string'||typeof image.alt!=='string'||!image.alt.trim()||image.alt.length>100)throw Error(imageWhere+'需提供图片路径和 100 字以内替代文本');
+  const parts=image.src.split('/');
+  if(!image.src.startsWith('images/')||image.src.includes('\\')||parts.some(part=>!part||part==='.'||part==='..')||!/\\.(?:avif|jpe?g|png|webp)$/i.test(image.src))throw Error(imageWhere+'src 需为 mall-goods/images/ 下的 JPG、PNG、WebP 或 AVIF 相对路径');
+  const imagePath=path.resolve(realMallDir,image.src);
+  if(!imagePath.startsWith(realMallDir+path.sep)||!fs.existsSync(imagePath)||!fs.statSync(imagePath).isFile())throw Error(imageWhere+'图片文件不存在或路径无效');
+  const realImagePath=fs.realpathSync(imagePath);
+  if(!realImagePath.startsWith(realMallDir+path.sep))throw Error(imageWhere+'图片文件不能指向 mall-goods/ 目录之外');
+  const outputPath=path.join(root,'public','mall-images',item.id,...parts.slice(1));
+  mallImageCopies.set(realImagePath,outputPath);
+  return {src:'/mall-images/'+item.id+'/'+parts.slice(1).join('/'),alt:image.alt.trim()};
+ });
+ return {id:item.id,name:item.name.trim(),description:item.description.trim(),price:item.price,stock:item.stock??null,enabled:item.enabled!==false,images};
 }).sort((a,b)=>a.price-b.price||a.id.localeCompare(b.id));
 const mallManifest=JSON.stringify(mallItems);
 for(const name of ['app.js','editorial.css','favicon.svg'])fs.copyFileSync(path.join(old,'public',name),path.join(root,'public',name));
+for(const [source,target] of mallImageCopies){fs.mkdirSync(path.dirname(target),{recursive:true});fs.copyFileSync(source,target);}
 fs.copyFileSync(path.join(root,'src/photo-compression.js'),path.join(root,'public/photo-compression.js'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/upload-compression.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/usage-notice.css'),'utf8'));

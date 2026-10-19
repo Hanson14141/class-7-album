@@ -1,7 +1,8 @@
 -- 积分商城 · 数据库结构
 -- 新环境：将本文件内容追加至 schema.sql 末尾
 -- 已有环境：执行 node scripts/apply-mall.cjs
--- 商品目录不在数据库中：由根目录 mall-goods/*.json 在构建时写入前后端，本文件只保存兑换记录和扣分事务
+-- 商品目录与配图不在数据库中：商品 JSON 和 mall-goods/images/ 在构建时写入前后端；
+-- 本文件只保存兑换记录和扣分事务，图片作为静态资源发布，不写入数据库
 
 -- 1. 兑换记录：私有表，游客不可读
 CREATE TABLE IF NOT EXISTS class7_test.mall_redemptions(

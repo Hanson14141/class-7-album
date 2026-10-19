@@ -742,7 +742,8 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION class7_test.set_photo_like_with_points(text,text,boolean),class7_test.set_comment_like_with_points(text,text,boolean) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION class7_test.set_photo_like_with_points(text,text,boolean),class7_test.set_comment_like_with_points(text,text,boolean) TO service_role;
--- 商品目录不在数据库中：由根目录 mall-goods/*.json 在构建时写入前后端，本文件只保存兑换记录和扣分事务
+-- 商品目录与配图不在数据库中：商品 JSON 和 mall-goods/images/ 在构建时写入前后端；
+-- 本文件只保存兑换记录和扣分事务，图片作为静态资源发布，不写入数据库
 
 -- 1. 兑换记录：私有表，游客不可读
 CREATE TABLE IF NOT EXISTS class7_test.mall_redemptions(

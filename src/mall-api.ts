@@ -1,11 +1,11 @@
 // Points mall routes. Prices and stock limits come from the build-time MALL_ITEMS
 // manifest (mall-goods/*.json), never from the request body.
-type MallItem={id:string;name:string;description:string;price:number;stock:number|null;enabled:boolean};
+type MallItem={id:string;name:string;description:string;price:number;stock:number|null;enabled:boolean;images:{src:string;alt:string}[]};
 declare const MALL_ITEMS:MallItem[];
 async function mallItemsRoute(request:Request){
  const counts=await database().prepare('SELECT item_id,count(*) AS n FROM class7_test.mall_redemptions GROUP BY item_id').all();
  const used=new Map<string,number>((counts.results as any[]).map(row=>[row.item_id,Number(row.n)||0]));
- const items=MALL_ITEMS.filter(item=>item.enabled).map(item=>({id:item.id,name:item.name,description:item.description,price:item.price,stock:item.stock,remaining:item.stock==null?null:Math.max(0,item.stock-(used.get(item.id)||0))}));
+ const items=MALL_ITEMS.filter(item=>item.enabled).map(item=>({id:item.id,name:item.name,description:item.description,price:item.price,stock:item.stock,images:item.images,remaining:item.stock==null?null:Math.max(0,item.stock-(used.get(item.id)||0))}));
  let totalPoints:number|null=null;
  try{const account=await requireAccount(request);totalPoints=(await checkinState(account.id)).totalPoints;}catch(error){if(!(error instanceof AccountError&&error.status===401))throw error;}
  return response({items,totalPoints});

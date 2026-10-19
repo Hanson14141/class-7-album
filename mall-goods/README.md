@@ -12,7 +12,13 @@
   "name": "专属昵称徽章",
   "description": "在留言和照片署名旁展示一枚小徽章（虚拟荣誉，兑换后联系管理员开通）。",
   "price": 60,
-  "enabled": true
+  "enabled": true,
+  "images": [
+    {
+      "src": "images/nickname-badge.webp",
+      "alt": "专属昵称徽章示意图"
+    }
+  ]
 }
 ```
 
@@ -24,6 +30,9 @@
 | `price` | 是 | 所需积分，正整数 |
 | `stock` | 否 | 库存，正整数；缺省表示不限量。兑完自动显示「已兑完」 |
 | `enabled` | 否 | `false` 时下架（保留文件和兑换记录）；缺省为上架 |
+| `images` | 否 | 最多 8 张商品配图；每项包含相对路径 `src` 和替代文本 `alt` |
+
+图片文件放在 `mall-goods/images/`，`src` 从该目录相对路径填写；支持 JPG、PNG、WebP 和 AVIF。构建时会检查图片存在、路径未越界，并把图片复制到网站静态资源中。图片由静态文件提供，不存进 `mall.sql` 或兑换记录表。
 
 ## 规则
 
