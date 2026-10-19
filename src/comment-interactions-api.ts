@@ -34,6 +34,7 @@ async function commentInteractionRoute(request:Request,parts:string[],url:URL,me
    // The photo and parent are checked again in the INSERT, so a concurrent delete cannot make an orphan reply.
    const inserted=await database().prepare('INSERT INTO comments(id,photo_id,owner_hash,author,author_username,body,created_at,reply_to_id,reply_to_author) SELECT ?,p.id,?,?,?,?,?,?,? FROM photos p WHERE p.id=? AND (?::text IS NULL OR EXISTS(SELECT 1 FROM comments c WHERE c.id=? AND c.photo_id=p.id)) RETURNING id').bind(id,current.write_owner_hash,current.nickname,account.username,body,now,replyToId,parent?.author||null,photoId,replyToId,replyToId).first<{id:string}>();
    if(!inserted)throw new ApiError(409,'照片或原留言已被删除，请刷新后再试。');
+   await awardPoints(account.id,'comment','comment:'+id);
    return response({comment:{id,author:current.nickname,authorUsername:account.username,body,createdAt:now,mine:true,replyToId,replyToAuthor:parent?.author||null,likeCount:0,liked:false}},201);
   }
  }
@@ -49,6 +50,7 @@ async function commentInteractionRoute(request:Request,parts:string[],url:URL,me
    const state=typeof row?.state==='string'?JSON.parse(row.state):row?.state;
    if(state?.missing)throw new ApiError(404,'留言已被删除。');
    if(!state||state.unauthorized)throw new ApiError(401,'请重新登录后再点赞。');
+   if(data.liked===true&&state.liked===true)await awardPoints(account.id,'comment_like','comment:'+id);
    return response({likeCount:Number(state.likeCount)||0,weeklyCount:Number(state.weeklyCount)||0,liked:state.liked===true});
   }
  }

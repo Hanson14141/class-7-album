@@ -1,3 +1,35 @@
+# 更新说明 · 2026-10-19-15：55「签到与积分」
+
+## 可直接用于 GitHub Release 的说明
+
+### 新增
+
+- 每日签到：顶栏新增签到按钮，每天可签到一次（北京时间），+10 分。
+- 连续签到：每满 7 天额外 +30 分；断签后重新计数。
+- 积分：发评论 +5（每天上限 50 分）、点赞照片 +2、点赞评论 +2；同一照片/评论终身只给一次，不受每周点赞重置影响。
+- 分值全部放在 `points_config` 表里，调分只改表，不用重新部署。
+
+### 接口
+
+- `POST /api/checkin`：签到，返回当天得分、连续天数、总分。
+- `GET /api/checkin`：今日签到状态；`GET /api/points`：总分与连续天数。
+
+## 代码修改索引
+
+| 文件 | 变化 |
+| --- | --- |
+| `checkin-points.sql` | 建表（points_config/points_ledger/user_points）+ award_points/do_checkin 函数 |
+| `scripts/apply-checkin-points.cjs` | 已有环境升级脚本 |
+| `src/checkin-points-api.ts` | 签到/积分路由 + awardPoints helper |
+| `src/checkin-points-ui.js`、`src/checkin-points.css` | 签到按钮、积分徽标、toast |
+| `src/photo-likes-api.ts`、`src/comment-interactions-api.ts` | 点赞/评论成功处各加 1 行加分钩子 |
+| `build.cjs` | 4 处注入接线；另修复 CRLF baseline 下构建失败（换行归一化 + 更新过时锚点） |
+| `schema.sql` | 末尾追加签到积分结构 |
+
+## 已有 CloudBase 环境升级
+
+现有环境由所有者用官方 CLI 登录后，先执行 `node scripts/apply-checkin-points.cjs`，成功再部署前后端。只新增表和函数，不碰原有数据。
+
 # 更新说明 · 2026-10-19「这期神了」
 
 本文件同时供使用者、协作者和 AI 阅读。下载 ZIP 后，请先打开根目录 `README.md`、`AGENTS.md` 和本文件，再决定修改位置。

@@ -20,5 +20,6 @@ async function photoLikeAction(request:Request,id:string,method:string){
  const state=typeof row?.state==='string'?JSON.parse(row.state):row?.state;
  if(state?.missing)throw new ApiError(404,'照片已经不存在。');
  if(!state||state.unauthorized)throw new ApiError(401,'请重新登录后再点赞。');
+ if(data.liked===true&&state.liked===true)await awardPoints(account.id,'photo_like','photo:'+id);
  return response({likeCount:Number(state.likeCount)||0,liked:state.liked===true});
 }
