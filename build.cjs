@@ -1,6 +1,21 @@
 const fs=require('node:fs');const path=require('node:path');
 const root=__dirname,old=path.join(root,'baseline');
 fs.mkdirSync(path.join(root,'src'),{recursive:true});fs.mkdirSync(path.join(root,'public'),{recursive:true});
+// Mall goods are edited by co-developers as mall-goods/*.json; prices are server-trusted.
+const mallDir=path.join(root,'mall-goods'),mallItemIds=new Set();
+const mallItems=fs.readdirSync(mallDir).filter(name=>name.endsWith('.json')).sort().map(name=>{
+ let item;try{item=JSON.parse(fs.readFileSync(path.join(mallDir,name),'utf8'));}catch{throw Error('mall-goods/'+name+' 不是合法的 JSON');}
+ const where='mall-goods/'+name+': ';
+ if(item.id!==name.slice(0,-5)||!/^[a-z0-9][a-z0-9-]{0,60}$/.test(item.id))throw Error(where+'id 必须与文件名一致，且只含小写字母、数字和连字符');
+ if(mallItemIds.has(item.id))throw Error(where+'id 与其他商品重复');
+ mallItemIds.add(item.id);
+ if(typeof item.name!=='string'||!item.name.trim()||item.name.length>40)throw Error(where+'name 需为 40 字以内文本');
+ if(typeof item.description!=='string'||!item.description.trim()||item.description.length>200)throw Error(where+'description 需为 200 字以内文本');
+ if(!Number.isSafeInteger(item.price)||item.price<1||item.price>1000000)throw Error(where+'price 需为正整数积分');
+ if(item.stock!=null&&(!Number.isSafeInteger(item.stock)||item.stock<1))throw Error(where+'stock 需为正整数，或省略表示不限量');
+ return {id:item.id,name:item.name.trim(),description:item.description.trim(),price:item.price,stock:item.stock??null,enabled:item.enabled!==false};
+}).sort((a,b)=>a.price-b.price||a.id.localeCompare(b.id));
+const mallManifest=JSON.stringify(mallItems);
 for(const name of ['app.js','editorial.css','favicon.svg'])fs.copyFileSync(path.join(old,'public',name),path.join(root,'public',name));
 fs.copyFileSync(path.join(root,'src/photo-compression.js'),path.join(root,'public/photo-compression.js'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/upload-compression.css'),'utf8'));
@@ -17,6 +32,7 @@ fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(pa
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/comment-interactions.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/comment-contest.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/checkin-points.css'),'utf8'));
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/mall.css'),'utf8'));
 let browserApp=fs.readFileSync(path.join(root,'public/app.js'),'utf8').replace(/\r\n/g,'\n');
 browserApp="async function cloudFetch(url,options){for(let retry=0;;retry++){const result=await fetch(url,options);if(result.status!==429||retry>=4)return result;await result.body?.cancel();await new Promise(resolve=>setTimeout(resolve,700*2**retry+Math.random()*250));}}\n"+browserApp;
 browserApp=browserApp.replace("const result=await fetch('/api'+path,{...options,headers,credentials:'same-origin'});", "const result=await cloudFetch('/api'+path,{...options,headers,credentials:'same-origin'});");
@@ -131,6 +147,7 @@ browserApp=browserApp.replace("$('#refresh-comments').addEventListener('click',(
 browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/comment-contest-ui.js'),'utf8')+'\ninit();');
 browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/checkin-points-ui.js'),'utf8')+'\ninit();');
 if(!browserApp.includes('async function loadCommentsLegacy')||!browserApp.includes('!app.commentBoardOpen&&app.playing'))throw Error('Comment contest hooks changed');
+browserApp=browserApp.replace('\ninit();',()=> '\nconst MALL_ITEMS='+mallManifest+';\n'+fs.readFileSync(path.join(root,'src/mall-ui.js'),'utf8')+'\ninit();');
 browserApp=browserApp.replace('return data;}', 'if(data.points&&requestGeneration===ownershipGeneration)document.dispatchEvent(new CustomEvent("class7:points",{detail:data.points}));return data;}');
 fs.writeFileSync(path.join(root,'public/app.js'),browserApp);
 fs.cpSync(path.join(old,'public/fonts'),path.join(root,'public/fonts'),{recursive:true});
@@ -139,6 +156,8 @@ html=html.replace('<label class="select-wrap"><span class="sr-only">按上传者
 html=html.replace('<div class="wall-shell"', '<p id="ranking-note" class="ranking-note" hidden>点赞从高到低 · 同赞数按最新上传排序 · 刷新更新名次</p><div class="wall-shell"');
 html=html.replace('</nav>','<button type="button" class="contest-nav" id="weekly-contest-nav">每周大赛</button></nav>');
 html=html.replace('</nav>','<button type="button" class="contest-nav comment-contest-nav" id="comment-contest-nav">这期神了</button></nav>');
+html=html.replace('</nav>','<button type="button" class="contest-nav mall-nav" id="mall-nav">商城</button></nav>');
+html=html.replace('<section class="gallery-section"',fs.readFileSync(path.join(root,'src/mall.html'),'utf8')+'<section class="gallery-section"');
 html=html.replace('<section class="gallery-section"',fs.readFileSync(path.join(root,'src/comment-contest.html'),'utf8')+'<section class="gallery-section"');
 html=html.replace('<option value="likes">点赞排行</option>','<option value="likes">点赞排行</option><option value="weekly">每周大赛</option>');
 html=html.replace('<div class="gallery-toolbar">',fs.readFileSync(path.join(root,'src/weekly-contest.html'),'utf8')+'<div class="gallery-toolbar">');
@@ -224,6 +243,11 @@ api+='\n'+fs.readFileSync(path.join(root,'src/comment-contest-api.ts'),'utf8');
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='checkin'&&parts.length===1)return await checkinRoute(request,method);");
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='points'&&parts.length===1)return await pointsRoute(request,method);");
 api+='\n'+fs.readFileSync(path.join(root,'src/checkin-points-api.ts'),'utf8');
+api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts.length===1&&method==='GET')return await mallItemsRoute(request);");
+api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts.length===2&&parts[1]==='redeem'&&method==='POST')return await mallRedeemRoute(request,await jsonBody(request));");
+api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts.length===2&&parts[1]==='redemptions'&&method==='GET')return await mallRedemptionsRoute(request);");
+api+='\nconst MALL_ITEMS='+mallManifest+';\n'+fs.readFileSync(path.join(root,'src/mall-api.ts'),'utf8');
+if(!api.includes('mallRedeemRoute')||!browserApp.includes('openMall'))throw Error('Mall hooks changed');
 fs.writeFileSync(path.join(root,'src/photo-api.ts'),api);
 let accounts=fs.readFileSync(path.join(old,'lib/accounts.ts'),'utf8').replace("from 'cloudflare:workers'","from './platform'");
 accounts=accounts.replace("import {chatGPTSignInPath} from '../app/chatgpt-auth';","const chatGPTSignInPath=(_path:string)=>'/';");

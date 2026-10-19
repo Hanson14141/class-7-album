@@ -15,6 +15,7 @@
 - 基础界面在 `baseline/public/`；CloudBase 适配及新增功能在 `src/`，通过 `build.cjs` 拼接和构建。
 - 本次评论榜重点阅读 `src/comment-contest-*`、`src/comment-interactions-*`、`src/weekly-contest-ui.js` 与 `build.cjs`。
 - 签到积分重点阅读 `checkin-points.sql`、`src/checkin-points-*`、`src/photo-likes-api.ts`、`src/comment-interactions-api.ts` 与 `build.cjs`。修改时保留点赞/评论及奖励的事务一致性；周点赞重置不应重复发放同一项的积分。
+- 积分商城重点阅读 `mall-goods/`（商品目录，协作者上架入口）、`mall.sql`、`src/mall-*` 与 `build.cjs`。价格与库存以构建时内联的服务端清单为准；扣分、流水与兑换记录必须在 `redeem_mall_item` 同一事务内提交或回滚。
 - 数据库完整初始化在 `schema.sql`，增量升级在对应 SQL 文件及 `scripts/apply-*.cjs`。修改共享 SQL 逻辑时检查完整 schema 和增量脚本是否一致。
 - 不直接编辑生成文件：`public/`、`hosting/`、`functions/class7-photo-api/public/`、`functions/class7-photo-api/index.cjs`、`src/accounts.ts`、`src/photo-api.ts`。下次构建会覆盖它们。
 - `build.cjs` 使用字符串替换；插入包含 `$`/`$$` 的 JS 源码时注意替换字符串的特殊含义，必要时用函数返回替换文本。

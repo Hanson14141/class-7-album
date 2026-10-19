@@ -1,0 +1,9 @@
+node_modules/
+public/
+hosting/
+functions/class7-photo-api/index.cjs
+functions/class7-photo-api/public/
+src/accounts.ts
+src/photo-api.ts
+verification-*.json
+.DS_Store

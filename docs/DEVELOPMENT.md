@@ -16,6 +16,9 @@
 | comment-contest.sql | 评论每周点赞、周榜结算与总赞排序 |
 | src/checkin-points-* | 签到/积分接口、状态同步与顶栏展示 |
 | checkin-points.sql | 私有积分配置、流水、连续签到与事务点赞奖励 |
+| mall-goods/ | 商城商品目录：协作者每件商品加一个 JSON，构建时校验并内联进前后端 |
+| src/mall-* | 积分商城接口、界面与兑换交互 |
+| mall.sql | 兑换记录私有表与事务扣分函数 |
 | schema.sql | 数据表、索引和服务端事务函数 |
 | functions/class7-photo-api/ | 函数依赖清单及 Linux 启动脚本 |
 

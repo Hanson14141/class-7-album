@@ -1,0 +1,7 @@
+{
+  "id": "wall-feature",
+  "name": "照片墙推荐位 · 一周",
+  "description": "你的一张照片在下周照片墙获得推荐展示（虚拟荣誉）。兑换后请联系管理员安排照片和周次。",
+  "price": 200,
+  "enabled": true
+}

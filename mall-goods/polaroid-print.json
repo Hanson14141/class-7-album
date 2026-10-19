@@ -1,0 +1,8 @@
+{
+  "id": "polaroid-print",
+  "name": "实体拍立得照片",
+  "description": "从相册里选一张照片，冲印成实体拍立得，返校时领取。数量有限，兑完即止。",
+  "price": 500,
+  "stock": 5,
+  "enabled": true
+}
