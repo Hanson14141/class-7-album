@@ -18,11 +18,15 @@
 
 | 等级 | 每个位置的初始抽取概率 | 新购买价格 | 外观 |
 | --- | ---: | ---: | --- |
-| 普通 common | 85% | 10 积分 | 普通细边 |
+| 普通 common | 82% | 10 积分 | 普通细边 |
 | 史诗 epic | 10% | 20 积分 | 紫色细边与史诗文字 |
 | 传奇 legendary（用户也称传说） | 5% | 30 积分 | 金色细边与传奇文字 |
+| 保密 classified | 3% | 80 积分 | 近黑细边与暗红保密级文字（全站独占，成交转为买家所有权并公开上墙） |
 
-- 每账号每天固定随机五张，按北京时间零点换新；刷新不能重抽。先抽等级，再从该等级尚未收藏的照片中均匀抽取，五张不重复。
+- 保密仓库核心定义：照片在仓库中当且仅当 `rarity = 'classified'` 且在 `mall_photo_inventory` 中无购买记录。全站统一使用 SQL 函数 `class7_test.photo_in_vault(photo_id)` 判断。
+- 保密照片全站独占：全站只能成交一次；成交后脱离仓库，同事务内将照片所有权（`owner_hash` 与 `uploader`）转为购买者（归入其「我上传的」并公开上墙），不再被任何账号刷出。并发防重卖通过 `FOR UPDATE` 行锁与 `photo_in_vault` 检查拦截，避免一图多卖。
+- 管理员入仓上传：仅 `class7_test.photo_vault_admins` 白名单中的管理员可通过顶栏独立入口上传保密级照片（`POST /api/vault/photos`），未售出前公开照片墙不可见（不计入全班公开总数），仅出现在当日刷到它的账号货架中，货架来源显示为「保密仓库」。
+- 每账号每天固定随机五张，按北京时间零点换新；刷新不能重抽。先抽四级等级（82/10/5/3），再从该等级尚未收藏的照片中均匀抽取，五张不重复。
 - 某等级为空或已集齐时，在剩余可用等级间按权重重新分配，所以此时实际概率会变化。不要把等级概率改成按照片张数加权。
 - 调整概率后，已经生成的今日五张保持不变；之后生成的货架使用新概率。今日尚未购买的卡牌执行新价格。
 - 已购买记录保留原成交价，不补扣积分。库存显示的是实际成交价，而非当前等级价格。
@@ -52,6 +56,7 @@
 
 | 需求 | 优先阅读/修改 |
 | --- | --- |
+| 保密仓库、独占成交及管理员上传 | `photo-vault.sql`、`scripts/apply-photo-vault.cjs`、`scripts/set-vault-admins.cjs`、`src/mall-api.ts`、`src/mall-ui.js`、`src/mall.css`、`baseline/lib/photo-api.ts` |
 | 卡牌概率、分级扣费及事务 | `photo-rarity.sql`、`schema.sql`、`scripts/apply-photo-rarity.cjs` |
 | 每日货架、库存、旧商品兼容 | `photo-mall.sql`、`src/mall-api.ts`；注意最终逻辑被 `photo-rarity.sql` 更新 |
 | 价格、购买确认、库存成交价 | `src/mall-api.ts`、`src/mall-ui.js`、`src/mall.html` |
@@ -139,6 +144,19 @@ npm run audit:source
 ```
 
 ## 7. 接手记录（最新在上，后续 AI 在此追加）
+
+### 2026-10-20 23:45（北京时间）｜保密级照片仓库与独占成交
+
+- 用户要求：按开发框架完成保密级照片仓库开发，包含全站独占成交、转为买家所有权、抽池权重 82/10/5/3、80 积分定价、管理员入仓上传及公开照片墙隐藏。
+- 当前进度：完整开发完成；本地构建与检查全部通过。
+- 规则变化：稀有度新增保密级 `classified`（80 积分，单抽初始权重 3%，全站独占一次成交）；三档权重 85/10/5 → 四档 82/10/5/3；保密级未售出前公开照片墙不可见，成交后所有权转为买家。
+- 修改文件：`photo-vault.sql`、`schema.sql`、`baseline/lib/photo-api.ts`、`src/photo-counts-api.ts`、`src/mall-api.ts`、`src/mall-ui.js`、`src/mall.css`、`scripts/apply-photo-vault.cjs`、`scripts/set-vault-admins.cjs`、`scripts/verify-photo-vault-db.cjs`、`UPDATE_NOTES.md`、`AI_HANDOFF.md`。
+- 数据迁移：已编写 `scripts/apply-photo-vault.cjs`（增量）与 `scripts/set-vault-admins.cjs`；生产环境尚未执行（待环境所有者执行）。
+- 验证：本地已执行 `npm run build`、`npm run check` 零报错通过；`scripts/verify-photo-vault-db.cjs` 在临时隔离 schema 验证 82/10/5/3 权重、防重卖行锁、80 积分扣费、买家所有权转移与管理员白名单权限通过。
+- 部署：未部署（代码已在本地工作区完成修改并验证，等待环境所有者上线部署）。
+- 版本与分发：基于 main 分支最新提交开发。
+- 未完成与下一步：环境所有者执行 `node scripts/apply-photo-vault.cjs` 和 `node scripts/set-vault-admins.cjs`，然后运行 `npm run build` 并部署静态文件与 HTTP 函数。
+
 
 ### 2026-10-20｜建立持续维护的 AI 接手指南
 
