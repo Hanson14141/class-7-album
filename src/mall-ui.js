@@ -1,4 +1,4 @@
-const mallRarities=[{key:'common',label:'普通'},{key:'epic',label:'史诗'},{key:'legendary',label:'传奇'}];
+const mallRarities=[{key:'common',label:'普通'},{key:'epic',label:'史诗'},{key:'legendary',label:'传奇'},{key:'classified',label:'保密级'}];
 function mallRarity(value){return mallRarities.find(x=>x.key===value)||mallRarities[0];}
 // On-demand daily shop and private paginated photo collection.
 const mallState={mode:'shop',items:[],inventory:[],cursor:null,totalPoints:null,total:0,summaryLoaded:false,collection:[],day:null,nextReset:null,loading:false,epoch:0,identity:null,buying:false,requests:new Map(),timer:null};
@@ -11,7 +11,7 @@ function mallPicture(photo){const frame=document.createElement('button');frame.t
 function renderMall(){
  const signed=!!app.account?.signedIn,inventory=mallState.mode==='inventory';renderMallPoints();renderCollectionProgress();
  $('#mall-shop-tab').setAttribute('aria-pressed',String(!inventory));$('#mall-inventory-tab').setAttribute('aria-pressed',String(inventory));$('#mall-login').hidden=signed;
- $('#mall-day-note').textContent=inventory?'已购买的照片 · 仅自己可见':(mallState.day?mallState.day+' · ':'')+'普通 10 · 史诗 20 · 传奇 30 积分 · 零点更新';
+ $('#mall-day-note').textContent=inventory?'已购买的照片 · 仅自己可见':(mallState.day?mallState.day+' · ':'')+'普通 10 · 史诗 20 · 传奇 30 · 保密 80 积分 · 零点更新';
  const wrap=$('#mall-items');wrap.replaceChildren();const entries=signed?(inventory?mallState.inventory:mallState.items):[];
  $('#mall-empty').hidden=!signed||mallState.loading||entries.length>0;$('#mall-empty').textContent=inventory?'库存还是空的，去今日照片挑选喜欢的瞬间。':'今天暂无可收藏的新照片。明天再来看看。';
  $('#mall-more').hidden=!signed||!inventory||!mallState.cursor;$('#mall-more').disabled=mallState.loading;
@@ -38,8 +38,81 @@ async function buyMallPhoto(item,button){
 }
 function showMallPhoto(photo){if(!photo.available)return;$('#mall-photo-dialog').dataset.rarity=mallRarity(photo.rarity).key;$('#mall-photo-title').textContent=photo.title;$('#mall-photo-rarity').textContent=mallRarity(photo.rarity).label;$('#mall-photo-caption').textContent=photo.caption||'';$('#mall-photo-author').textContent='来自 '+photo.uploader;const image=$('#mall-photo-image'),frame=$('#mall-photo-frame');image.alt=photo.title;image.onload=()=>fitRotatedImage(image,photo,frame.clientWidth,frame.clientHeight);image.src=photo.src;showDialog('mall-photo-dialog');if(image.complete)fitRotatedImage(image,photo,frame.clientWidth,frame.clientHeight);}
 function refreshMallIdentity(){const key=(app.account?.signedIn?app.account.username:'')+'|'+ownershipGeneration;if(mallState.identity===key)return;mallState.identity=key;mallState.epoch++;mallState.items=[];mallState.inventory=[];mallState.cursor=null;mallState.totalPoints=null;mallState.total=0;mallState.collection=[];mallState.summaryLoaded=false;mallState.buying=false;mallState.requests.clear();$('#mall-photo-dialog').close();$('#mall-photo-image').removeAttribute('src');if(app.mallOpen)loadMall();else renderMall();}
+
+let vaultStatusState={admin:false,stock:0};
+async function refreshVaultStatus(){
+ if(!app.account?.signedIn){vaultStatusState={admin:false,stock:0};renderVaultButton();return;}
+ try{
+  const data=await api('/vault/status');
+  vaultStatusState={admin:!!data.admin,stock:Number(data.stock)||0};
+ }catch{
+  vaultStatusState={admin:false,stock:0};
+ }
+ renderVaultButton();
+}
+function renderVaultButton(){
+ let btn=$('#vault-upload-btn');
+ if(!vaultStatusState.admin){
+  if(btn)btn.remove();
+  return;
+ }
+ if(!btn){
+  btn=document.createElement('button');
+  btn.type='button';
+  btn.id='vault-upload-btn';
+  btn.className='button button-secondary vault-upload-btn';
+  btn.title='仓库上传不压缩';
+  const openUpload=$('[data-open-upload]');
+  if(openUpload)openUpload.insertAdjacentElement('afterend',btn);
+  else document.querySelector('.header-actions')?.append(btn);
+  btn.addEventListener('click',triggerVaultUpload);
+ }
+ btn.textContent='仓库上传（保密级 · 库存 '+vaultStatusState.stock+'）';
+}
+async function fileDimensions(file){
+ const url=URL.createObjectURL(file);
+ try{
+  return await imageDimensions(url);
+ }finally{
+  URL.revokeObjectURL(url);
+ }
+}
+function triggerVaultUpload(){
+ const input=document.createElement('input');
+ input.type='file';
+ input.accept='image/*';
+ input.multiple=true;
+ input.style.display='none';
+ input.addEventListener('change',async ()=>{
+  const files=Array.from(input.files||[]);
+  if(!files.length)return;
+  const btn=$('#vault-upload-btn');
+  if(btn){btn.disabled=true;btn.textContent='正在上传到保密仓库…';}
+  try{
+   for(const file of files){
+    const dims=await fileDimensions(file);
+    await api('/vault/photos',{
+     method:'POST',
+     headers:{
+      'Content-Type':file.type,
+      'X-Photo-Metadata':metadataHeader({title:'',caption:'',rotation:0,width:dims.width,height:dims.height})
+     },
+     body:file
+    });
+   }
+   toast('已存入保密仓库');
+  }catch(err){
+   toast(err.message||'仓库上传失败');
+  }finally{
+   await refreshVaultStatus();
+  }
+ });
+ input.click();
+}
+
 $('#mall-nav').addEventListener('click',openMall);for(const button of $$('.nav-tab'))button.addEventListener('click',closeMall);$('#weekly-contest-nav').addEventListener('click',closeMall);$('#comment-contest-nav').addEventListener('click',closeMall);
 $('#mall-shop-tab').addEventListener('click',()=>{mallState.mode='shop';loadMall();});$('#mall-inventory-tab').addEventListener('click',()=>{mallState.mode='inventory';loadMall();});$('#mall-more').addEventListener('click',()=>{if(!mallState.loading)loadMall(true);});$('#mall-login-button').addEventListener('click',()=>openLogin(()=>loadMall()));$('#mall-photo-close').addEventListener('click',()=>$('#mall-photo-dialog').close());
-const mallProfileHook=updateProfile;updateProfile=function(){mallProfileHook();refreshMallIdentity();};const mallLayoutHook=applyContestLayout;applyContestLayout=function(){mallLayoutHook();syncMallNav();};
+const mallProfileHook=updateProfile;updateProfile=function(){mallProfileHook();refreshMallIdentity();refreshVaultStatus();};const mallLayoutHook=applyContestLayout;applyContestLayout=function(){mallLayoutHook();syncMallNav();};
 // One refresh when returning to an already-open shop; no polling or album downloads.
- document.addEventListener('visibilitychange',()=>{if(!document.hidden&&app.mallOpen&&!mallState.buying)loadMall();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&app.mallOpen&&!mallState.buying)loadMall();});
+refreshVaultStatus();

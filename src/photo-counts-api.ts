@@ -1,6 +1,6 @@
 // Read counts in the same batch as the requested page; the cursor only limits
 // the page query, never the totals or uploader breakdown.
-const mineWhere=mine?'WHERE owner_hash=?':'',mineValues=mine?[hash]:[];
+const mineWhere=mine?'WHERE owner_hash=?':'WHERE NOT class7_test.photo_in_vault(photos.id)',mineValues=mine?[hash]:[];
 const result=await database().batch([
  database().prepare(`SELECT * FROM photos ${where.length?'WHERE '+where.join(' AND '):''} ORDER BY created_at DESC,id DESC LIMIT 101`).bind(...values),
  database().prepare(`SELECT count(*) AS n FROM photos ${mineWhere}`).bind(...mineValues),
