@@ -59,7 +59,7 @@ export async function handlePhotoApi(request:Request){
     const hash=await ownerHash(request),cursor=decodeCursor(url.searchParams.get('cursor')),mine=url.searchParams.get('mine')==='1';
     if(mine&&!hash)return response({photos:[],nextCursor:null,total:0});
     const where:string[]=[],values:unknown[]=[];if(mine){where.push('owner_hash=?');values.push(hash);}else{where.push('NOT class7_test.photo_in_vault(photos.id)');}if(cursor){where.push('(created_at<? OR (created_at=? AND id<?))');values.push(cursor.date,cursor.date,cursor.id);}
-    const result=await database().batch([database().prepare(`SELECT * FROM photos ${where.length?'WHERE '+where.join(' AND '):''} ORDER BY created_at DESC,id DESC LIMIT 101`).bind(...values),database().prepare(`SELECT count(*) AS n FROM photos ${mine?'WHERE owner_hash=?':''}`).bind(...(mine?[hash]:[]))]);
+    const result=await database().batch([database().prepare(`SELECT * FROM photos ${where.length?'WHERE '+where.join(' AND '):''} ORDER BY created_at DESC,id DESC LIMIT 101`).bind(...values),database().prepare(`SELECT count(*) AS n FROM photos ${mine?'WHERE owner_hash=?':'WHERE NOT class7_test.photo_in_vault(photos.id)'}`).bind(...(mine?[hash]:[]))]);
     const found=result[0].results as Photo[],rows=found.slice(0,100),count=result[1].results[0] as {n:number}|undefined;
     return response({photos:rows.map(row=>photoView(row,hash)),nextCursor:found.length>100?encodeCursor(rows[rows.length-1]):null,total:count?.n||0});
    }

@@ -145,6 +145,19 @@ npm run audit:source
 
 ## 7. 接手记录（最新在上，后续 AI 在此追加）
 
+### 2026-10-20 23:55（北京时间）｜同步 baseline 公开照片 count 查询排除未售出保密照片
+
+- 用户要求：修正 baseline/lib/photo-api.ts 中 GET /photos 的 count 查询，与列表同口径排除未售出保密照片（WHERE NOT class7_test.photo_in_vault(photos.id)）。改完重跑 npm run build && npm run check，补一个 commit 推到 feat/photo-vault。
+- 当前进度：完成。
+- 规则变化：无。公开照片总数与列表口径一致，未售出保密照片不计入公开总数。
+- 修改文件：baseline/lib/photo-api.ts、AI_HANDOFF.md。
+- 数据迁移：无。
+- 验证：npm run build 与 npm run check 零报错通过；npm run audit:source 零报错通过。
+- 部署：未部署（已推送到 GitHub 分支 feat/photo-vault，等待环境所有者上线部署）。
+- 版本与分发：已推送到分支 feat/photo-vault。
+- 未完成与下一步：环境所有者执行迁移并部署静态资源与云函数。
+
+
 ### 2026-10-20 23:45（北京时间）｜保密级照片仓库与独占成交
 
 - 用户要求：按开发框架完成保密级照片仓库开发，包含全站独占成交、转为买家所有权、抽池权重 82/10/5/3、80 积分定价、管理员入仓上传及公开照片墙隐藏。
