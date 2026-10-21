@@ -1,0 +1,9 @@
+<section id="admin-rarity-tools" class="admin-rarity-tools" aria-label="管理员卡牌设置" hidden>
+ <button type="button" class="text-button" id="edit-photo-rarity">设置卡牌等级</button>
+ <form id="photo-rarity-form" hidden>
+  <label for="photo-rarity-select">卡牌等级</label>
+  <div class="admin-rarity-row"><select id="photo-rarity-select"><option value="common">普通</option><option value="epic">史诗</option><option value="legendary">传奇</option><option value="classified">保密级</option></select><button type="submit" class="button button-primary" id="save-photo-rarity">保存</button><button type="button" class="text-button" id="cancel-photo-rarity">取消</button></div>
+  <p class="admin-rarity-hint">直接修改这张照片，不会重复上传。原有点赞、评论和收藏保留。保密级不会公开展示。</p>
+ </form>
+ <p id="photo-rarity-status" class="admin-rarity-hint" role="status" aria-live="polite" hidden></p>
+</section>

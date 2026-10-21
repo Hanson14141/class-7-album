@@ -1,0 +1,40 @@
+<dialog id="camera-intro" class="camera-intro" open aria-labelledby="camera-intro-title" aria-describedby="camera-intro-hint">
+ <div id="camera-stage" class="camera-stage" aria-hidden="true">
+  <canvas id="camera-matte-canvas"></canvas>
+  <div id="camera-world">
+   <svg id="camera-bodywork" class="camera-body-svg" viewBox="-270 -220 540 440" fill="none"><defs>
+ <linearGradient id="camera-metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fafafa"/><stop offset=".48" stop-color="#ededed"/><stop offset="1" stop-color="#bfbfbf"/></linearGradient>
+ <linearGradient id="camera-shell" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#383838"/><stop offset="1" stop-color="#222222"/></linearGradient>
+ <linearGradient id="camera-panel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ababab"/><stop offset="1" stop-color="#7a7a7a"/></linearGradient>
+ </defs>
+ <rect x="-64" y="-188" width="158" height="65" rx="20" fill="#999999"/>
+ <path d="M-43-133V-157Q-43-169-31-169H62Q74-169 74-157V-133" fill="#292929"/>
+ <rect x="-158" y="-159" width="52" height="17" rx="5" fill="#616161"/>
+ <path d="M-204-145H192Q234-145 234-103V98Q234 140 192 140H-204Q-246 140-246 98V-103Q-246-145-204-145Z" fill="url(#camera-shell)" stroke="#4f4f4f" stroke-width="1.2"/>
+ <path d="M-246-58H234V98Q234 140 192 140H-204Q-246 140-246 98Z" fill="url(#camera-panel)"/>
+ <path d="M-100-58H234V-20C216 83 159 137 77 140H-12C-104 140-157 89-150 26Q-146-29-100-58Z" fill="#3f3f3f"/>
+ <path d="M-246 101H171Q218 101 234 50V98Q234 140 192 140H-204Q-246 140-246 101Z" fill="#191919"/>
+ <path d="M-204-143H192Q232-143 232-103" stroke="#808080" stroke-opacity=".4" stroke-width="1.3"/>
+ <circle cx="-204" cy="-103" r="19" fill="#f1f1f1"/><circle cx="-204" cy="-103" r="9" fill="#373737"/>
+ <circle cx="-159" cy="-103" r="7" fill="#b9b9b9"/>
+ <rect x="-137" y="-112" width="30" height="18" rx="2" fill="#dcdcdc"/>
+ <rect x="131" y="-122" width="77" height="45" rx="3" fill="#181818"/>
+ <rect x="137" y="-116" width="65" height="33" rx="1" fill="#cdcdcd"/>
+ <path d="M142-111H197" stroke="#f0f0f0" stroke-opacity=".7"/>
+ </svg>
+   <svg id="camera-lens-rings" class="camera-rings-svg" viewBox="-120 -120 240 240" fill="none">
+ <circle r="110" stroke="#181818" stroke-width="3"/>
+ <circle r="99" stroke="url(#camera-metal)" stroke-width="20"/>
+ <circle r="86" stroke="#222222" stroke-width="7"/>
+ <circle r="82" stroke="#555555" stroke-width="2"/>
+ <path d="M-45-88A99 99 0 0 1-20-97" stroke="#808080" stroke-width="5"/>
+ <path d="M47 87A99 99 0 0 1 19 97" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/>
+ </svg>
+   <div class="camera-iris-window"><div id="camera-iris-cover"></div><canvas id="camera-iris-canvas" width="960" height="960"></canvas></div>
+  </div>
+ </div>
+ <div class="camera-intro-top camera-intro-copy"><span>CLASS 7 / MEMORY</span><button id="camera-intro-skip" class="camera-intro-skip" type="button">直接进入 <span aria-hidden="true">↗</span></button></div>
+ <form id="camera-shutter-form"><button id="camera-shutter" class="camera-shutter" type="submit" aria-label="按下快门，穿过镜头进入照片集" autofocus><span></span></button></form>
+ <div class="camera-intro-caption camera-intro-copy"><h1 id="camera-intro-title">Through the Lens.</h1><p id="camera-intro-hint">Press the shutter to enter.</p></div>
+ <div class="camera-intro-bottom camera-intro-copy"><span>高三七班照片集</span><span>A MOMENT, KEPT.</span></div>
+</dialog>

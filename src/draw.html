@@ -1,0 +1,15 @@
+<section id="draw-board" class="draw-board" hidden aria-labelledby="draw-heading">
+ <div class="mall-heading"><div><p class="draw-eyebrow">CLASS 7 / A MOMENT TO KEEP</p><h1 id="draw-heading">抽卡</h1><p class="mall-subtitle">让下一张回忆，成为你的收藏。</p></div><div class="mall-points">我的积分<strong id="draw-points">—</strong></div></div>
+ <div class="draw-pity" aria-label="保底进度">
+  <div><div class="draw-pity-label"><span>传奇及以上</span><span id="draw-legendary-left">最多 30 抽</span></div><progress id="draw-legendary-progress" value="0" max="30" aria-label="传奇及以上保底进度"></progress></div>
+  <div><div class="draw-pity-label"><span>保密卡</span><span id="draw-classified-left">最多 50 抽</span></div><progress id="draw-classified-progress" value="0" max="50" aria-label="保密卡保底进度"></progress></div>
+ </div>
+ <div class="draw-controls"><button type="button" class="button button-secondary" id="draw-single">单抽 <span>10 积分</span></button><button type="button" class="button button-primary" id="draw-ten">十连抽 <span>90 积分</span></button></div>
+ <div class="draw-summary"><p id="draw-total">单抽与十连共用保底 · 进度永久保留</p><button type="button" class="text-button" id="draw-inventory">查看我的库存 →</button></div>
+ <p id="draw-login" hidden>登录后即可抽卡，卡牌与保底进度跟随账号保存。</p>
+ <p id="draw-status" role="status" aria-live="polite" hidden></p>
+ <button type="button" class="button button-secondary" id="draw-retry" hidden>重试查询本次抽卡结果</button>
+ <div class="draw-results-heading"><h2 id="draw-results-heading">你的下一张回忆</h2><span id="draw-result-note"></span></div>
+ <div id="draw-results" class="mall-items draw-results" aria-labelledby="draw-results-heading"><p class="draw-placeholder">抽到的照片会直接收进「我的库存」。</p></div>
+ <details class="contest-rules"><summary>概率与保底规则</summary><p>基础概率与商城一致：普通 82%、史诗 10%、传奇 5%、保密 3%。先抽等级，再在该等级中随机选择未收藏的照片；某等级为空或已集齐时，按剩余权重重新分配。</p><p>最多 30 抽必得传奇或保密卡；提前抽到任一等级会重置这条计数。最多 50 抽必得保密卡；抽到保密卡会重置两条计数。保密保底优先，单抽和十连共用进度，跨天不重置；商城购买不计入抽卡保底。</p><p>单抽 10 积分，十连 90 积分。不重复获得已有照片。若新卡不足、或无法兑现当次保底，整次单抽或十连不扣分，也不改变库存或保底进度。保密卡保留独占规则，抽中后仅在个人库存查看，不进入公开照片墙。十连的库存记录按每张 9 积分记账。</p></details>
+</section>
