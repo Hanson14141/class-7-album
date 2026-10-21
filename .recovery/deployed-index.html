@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="高三七班的共同相册。分享我们的照片，留住一起走过的日子。">
+  <title>高三七班照片集</title>
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('class7-theme')==='dark'?'dark':'light';}catch{}</script>
+  <link rel="icon" href="https://class7-memory-d0gcpjaqu47530c54-1509361747.tcloudbaseapp.com/favicon.svg?v=3b844a165b15" type="image/svg+xml">
+  <link rel="preload" href="https://class7-memory-d0gcpjaqu47530c54-1509361747.tcloudbaseapp.com/fonts/ArchivoBlack-Regular.ttf?v=dd9a89a019b4" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="https://class7-memory-d0gcpjaqu47530c54-1509361747.tcloudbaseapp.com/editorial.css?v=33afbf554af9">
+  <script src="https://class7-memory-d0gcpjaqu47530c54-1509361747.tcloudbaseapp.com/photo-compression.js?v=83eec39df714" defer></script><script src="https://class7-memory-d0gcpjaqu47530c54-1509361747.tcloudbaseapp.com/app.js?v=77d63f496e85" defer></script>
+<script>window.class7CameraConfig={"durationMs":3200,"skipSession":true,"sessionKey":"class7-camera-entered"};
+// Runs in the head so a returning tab does not briefly show the camera.
+(function(){
+ const config=window.class7CameraConfig;
+ let seen=false;try{seen=config.skipSession&&sessionStorage.getItem(config.sessionKey)==='1';}catch{}
+ document.documentElement.dataset.cameraIntro=seen?'skip':'pending';
+ // The camera must not trap visitors if the main script fails to load.
+ if(!seen)window.class7CameraBootTimer=setTimeout(()=>{const d=document.getElementById('camera-intro');if(d?.open)d.close();document.documentElement.dataset.cameraIntro='done';},12000);
+})();
+</script></head>
+<body>
+<dialog id="camera-intro" class="camera-intro" open aria-labelledby="camera-intro-title" aria-describedby="camera-intro-hint">
+ <div id="camera-stage" class="camera-stage" aria-hidden="true">
+  <canvas id="camera-matte-canvas"></canvas>
+  <div id="camera-world">
+   <svg id="camera-bodywork" class="camera-body-svg" viewBox="-270 -220 540 440" fill="none"><defs>
+ <linearGradient id="camera-metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fafafa"/><stop offset=".48" stop-color="#ededed"/><stop offset="1" stop-color="#bfbfbf"/></linearGradient>
+ <linearGradient id="camera-shell" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#383838"/><stop offset="1" stop-color="#222222"/></linearGradient>
+ <linearGradient id="camera-panel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ababab"/><stop offset="1" stop-color="#7a7a7a"/></linearGradient>
+ </defs>
+ <rect x="-64" y="-188" width="158" height="65" rx="20" fill="#999999"/>
+ <path d="M-43-133V-157Q-43-169-31-169H62Q74-169 74-157V-133" fill="#292929"/>
+ <rect x="-158" y="-159" width="52" height="17" rx="5" fill="#616161"/>
+ <path d="M-204-145H192Q234-145 234-103V98Q234 140 192 140H-204Q-246 140-246 98V-103Q-246-145-204-145Z" fill="url(#camera-shell)" stroke="#4f4f4f" stroke-width="1.2"/>
+ <path d="M-246-58H234V98Q234 140 192 140H-204Q-246 140-246 98Z" fill="url(#camera-panel)"/>
+ <path d="M-100-58H234V-20C216 83 159 137 77 140H-12C-104 140-157 89-150 26Q-146-29-100-58Z" fill="#3f3f3f"/>
+ <path d="M-246 101H171Q218 101 234 50V98Q234 140 192 140H-204Q-246 140-246 101Z" fill="#191919"/>
+ <path d="M-204-143H192Q232-143 232-103" stroke="#808080" stroke-opacity=".4" stroke-width="1.3"/>
+ <circle cx="-204" cy="-103" r="19" fill="#f1f1f1"/><circle cx="-204" cy="-103" r="9" fill="#373737"/>
+ <circle cx="-159" cy="-103" r="7" fill="#b9b9b9"/>
+ <rect x="-137" y="-112" width="30" height="18" rx="2" fill="#dcdcdc"/>
+ <rect x="131" y="-122" width="77" height="45" rx="3" fill="#181818"/>
+ <rect x="137" y="-116" width="65" height="33" rx="1" fill="#cdcdcd"/>
+ <path d="M142-111H197" stroke="#f0f0f0" stroke-opacity=".7"/>
+ </svg>
+   <svg id="camera-lens-rings" class="camera-rings-svg" viewBox="-120 -120 240 240" fill="none">
+ <circle r="110" stroke="#181818" stroke-width="3"/>
+ <circle r="99" stroke="url(#camera-metal)" stroke-width="20"/>
+ <circle r="86" stroke="#222222" stroke-width="7"/>
+ <circle r="82" stroke="#555555" stroke-width="2"/>
+ <path d="M-45-88A99 99 0 0 1-20-97" stroke="#808080" stroke-width="5"/>
+ <path d="M47 87A99 99 0 0 1 19 97" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/>
+ </svg>
+   <div class="camera-iris-window"><div id="camera-iris-cover"></div><canvas id="camera-iris-canvas" width="960" height="960"></canvas></div>
+  </div>
+ </div>
+ <div class="camera-intro-top camera-intro-copy"><span>CLASS 7 / MEMORY</span><button id="camera-intro-skip" class="camera-intro-skip" type="button">直接进入 <span aria-hidden="true">↗</span></button></div>
+ <form id="camera-shutter-form"><button id="camera-shutter" class="camera-shutter" type="submit" aria-label="按下快门，穿过镜头进入照片集" autofocus><span></span></button></form>
+ <div class="camera-intro-caption camera-intro-copy"><h1 id="camera-intro-title">Through the Lens.</h1><p id="camera-intro-hint">Press the shutter to enter.</p></div>
+ <div class="camera-intro-bottom camera-intro-copy"><span>高三七班照片集</span><span>A MOMENT, KEPT.</span></div>
+</dialog>
+
+
+  <svg class="icon-library" aria-hidden="true"><defs>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M3 6h3c5 0 7 12 12 12h3m-4-4 4 4-4 4M3 18h3c2.1 0 3.7-2.1 5-4.7M13 9c1.5-2 3-3 5-3h3m-4-4 4 4-4 4"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20 7v5h-5M20 12a8 8 0 1 0-2.3 5.7"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v13m-5-5 5 5 5-5M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v1"/></symbol>
+    <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor" stroke="none"/></symbol>
+  </defs></svg>
+
+  <div id="camera-page"><header class="site-header">
+    <a href="./" class="brand" aria-label="高三七班照片集首页"><span>高三七班照片集</span><span class="brand-en">SENIOR 3 / CLASS 7</span></a>
+    <nav class="main-nav" aria-label="相册导航"><button class="nav-tab active" data-view="all" aria-current="page">照片墙</button><button class="nav-tab" data-view="mine">我上传的<span id="my-count" hidden>0</span></button><button type="button" class="contest-nav" id="weekly-contest-nav">每周大赛</button><button type="button" class="contest-nav comment-contest-nav" id="comment-contest-nav">这期神了</button><button type="button" class="contest-nav mall-nav" id="mall-nav">商城</button><button type="button" class="contest-nav" id="draw-nav">抽卡</button></nav>
+    <div class="header-actions"><button class="theme-toggle" id="theme-toggle" aria-label="切换为深色模式" aria-pressed="false" title="切换明暗色调"><svg class="icon"><use href="#i-theme"/></svg><span id="theme-label">深色</span></button><button class="button button-primary" data-open-upload aria-label="上传照片"><span>上传照片</span><svg class="icon"><use href="#i-plus"/></svg></button><button type="button" id="checkin-button" class="checkin-button"><span id="checkin-label">签到</span><span id="points-badge" class="points-badge" hidden></span></button><button type="button" id="reply-inbox-button" class="reply-inbox-button" hidden>回复我的 <span id="reply-badge" class="reply-badge" hidden></span></button><button class="profile-button" id="profile-button" title="登录或管理照片集账号"><span class="profile-dot" aria-hidden="true"></span><span id="profile-label">登录</span></button></div>
+  </header>
+
+  <main>
+    <section class="intro" aria-label="高三七班照片墙">
+      <h1 class="photo-wordmark" aria-label="PHOTO"><svg viewBox="0 0 1200 238" aria-hidden="true"><text x="-7" y="225" textLength="1208" lengthAdjust="spacingAndGlyphs">PHOTO</text></svg></h1>
+    </section>
+
+    <section id="draw-board" class="draw-board" hidden aria-labelledby="draw-heading">
+ <div class="mall-heading"><div><p class="draw-eyebrow">CLASS 7 / A MOMENT TO KEEP</p><h1 id="draw-heading">抽卡</h1><p class="mall-subtitle">让下一张回忆，成为你的收藏。</p></div><div class="mall-points">我的积分<strong id="draw-points">—</strong></div></div>
+ <div class="draw-pity" aria-label="保底进度">
+  <div><div class="draw-pity-label"><span>传奇及以上</span><span id="draw-legendary-left">最多 30 抽</span></div><progress id="draw-legendary-progress" value="0" max="30" aria-label="传奇及以上保底进度"></progress></div>
+  <div><div class="draw-pity-label"><span>保密卡</span><span id="draw-classified-left">最多 50 抽</span></div><progress id="draw-classified-progress" value="0" max="50" aria-label="保密卡保底进度"></progress></div>
+ </div>
+ <div class="draw-controls"><button type="button" class="button button-secondary" id="draw-single">单抽 <span>10 积分</span></button><button type="button" class="button button-primary" id="draw-ten">十连抽 <span>90 积分</span></button></div>
+ <div class="draw-summary"><p id="draw-total">单抽与十连共用保底 · 进度永久保留</p><button type="button" class="text-button" id="draw-inventory">查看我的库存 →</button></div>
+ <p id="draw-login" hidden>登录后即可抽卡，卡牌与保底进度跟随账号保存。</p>
+ <p id="draw-status" role="status" aria-live="polite" hidden></p>
+ <button type="button" class="button button-secondary" id="draw-retry" hidden>重试查询本次抽卡结果</button>
+ <div class="draw-results-heading"><h2 id="draw-results-heading">你的下一张回忆</h2><span id="draw-result-note"></span></div>
+ <div id="draw-results" class="mall-items draw-results" aria-labelledby="draw-results-heading"><p class="draw-placeholder">抽到的照片会直接收进「我的库存」。</p></div>
+ <details class="contest-rules"><summary>概率与保底规则</summary><p>基础概率与商城一致：普通 82%、史诗 10%、传奇 5%、保密 3%。先抽等级，再在该等级中随机选择未收藏的照片；某等级为空或已集齐时，按剩余权重重新分配。</p><p>最多 30 抽必得传奇或保密卡；提前抽到任一等级会重置这条计数。最多 50 抽必得保密卡；抽到保密卡会重置两条计数。保密保底优先，单抽和十连共用进度，跨天不重置；商城购买不计入抽卡保底。</p><p>单抽 10 积分，十连 90 积分。不重复获得已有照片。若新卡不足、或无法兑现当次保底，整次单抽或十连不扣分，也不改变库存或保底进度。保密卡保留独占规则，抽中后仅在个人库存查看，不进入公开照片墙。十连的库存记录按每张 9 积分记账。</p></details>
+</section>
+<section id="mall-board" class="mall-board" aria-labelledby="mall-title" hidden>
+ <div class="mall-heading"><div><p class="contest-eyebrow">CLASS 7 / DAILY PICKS</p><h1 id="mall-title">商城</h1><p class="mall-subtitle">每天五张随机照片，把喜欢的瞬间收进库存。</p></div><div class="mall-points"><span>我的积分</span><strong id="mall-points">—</strong></div></div>
+ <div class="mall-tabs" role="group" aria-label="商城栏目"><button type="button" id="mall-shop-tab" aria-pressed="true">今日照片</button><button type="button" id="mall-inventory-tab" aria-pressed="false">我的库存 <span id="mall-inventory-count">0</span></button><span id="mall-day-note">普通10 / 史诗20 / 传奇30积分 · 北京时间零点更新</span></div>
+ <section id="mall-collection-progress" class="collection-progress" aria-labelledby="collection-progress-title" hidden>
+ <div class="collection-progress-heading"><div><h2 id="collection-progress-title">收藏进度</h2><p>已收藏 <strong id="collection-total">0</strong> 张不同照片</p></div><span id="collection-current-title" class="collection-current-title">尚未获得称号</span></div>
+ <div id="collection-rarity-progress" class="collection-tiers" aria-label="四种卡牌收藏进度及集齐成就"></div>
+ <p id="collection-next" class="collection-next"></p>
+ <ol class="collection-achievements" aria-label="收藏成就">
+  <li data-collection-goal="20"><span class="collection-achievement-count">20 张</span><strong>新手收藏者</strong><span class="collection-achievement-state">未解锁</span></li>
+  <li data-collection-goal="40"><span class="collection-achievement-count">40 张</span><strong>老手收藏家</strong><span class="collection-achievement-state">未解锁</span></li>
+  <li data-collection-goal="60"><span class="collection-achievement-count">60 张</span><strong>大份收集家</strong><span class="collection-achievement-state">未解锁</span></li>
+ </ol>
+</section>
+<p id="mall-status" class="mall-status" role="status" hidden></p>
+ <div id="mall-login" class="mall-empty" hidden><p>登录后查看今日为你挑选的五张照片。</p><button type="button" id="mall-login-button">登录照片集</button></div>
+ <div id="mall-items" class="mall-items" aria-label="今日照片与个人库存"></div>
+ <p id="mall-empty" class="mall-empty" hidden></p><button type="button" id="mall-more" class="mall-more" hidden>加载更多库存</button>
+ <details class="contest-rules"><summary>收藏规则</summary><p>每个账号每天固定随机五张。每个位置先按普通82%、史诗10%、传奇5%、保密3%抽取稀有度，再在该类中随机选一张；该类已集齐或为空时按剩余权重分配，五张不重复。升级前已生成的今日照片保持不变，新货架使用新概率。刷新不会更换；候选不足五张时按实际数量显示。普通10积分、史诗20积分、传奇30积分、保密40积分，已收藏的照片不重复扣分，购买不可撤销。四种收藏进度分别统计全库存，含本人已购但原图被移除的记录；照片重新分级后进度同步调整。库存跟随登录账号保存，不随关联账号合并。保密级不在照片墙和共享相册展示，购买后仅在个人库存查看，不能作为公开评论表情；其他等级仍可公开浏览；原作者删除照片后保留购买记录，图片不再可查看。</p></details>
+</section>
+<dialog id="mall-photo-dialog" class="mall-photo-dialog" aria-labelledby="mall-photo-title"><div class="mall-photo-heading"><h2 id="mall-photo-title"></h2><button type="button" id="mall-photo-close" aria-label="关闭照片">×</button></div><span id="mall-photo-rarity" class="mall-rarity"></span><div id="mall-photo-frame" class="mall-photo-frame"><img id="mall-photo-image" alt=""></div><p id="mall-photo-caption"></p><p id="mall-photo-author"></p></dialog>
+<section id="comment-board" class="comment-board" aria-labelledby="comment-board-title" hidden>
+ <div class="comment-board-heading"><div><p class="contest-eyebrow">CLASS 7 / WORDS OF THE WEEK</p><h1 id="comment-board-title">这期神了</h1><p class="comment-board-subtitle">照片里的瞬间，留言里的神来一笔。</p></div><div class="comment-board-tabs" role="group" aria-label="评论榜单"><button type="button" data-comment-period="current" aria-pressed="true">本周</button><button type="button" data-comment-period="previous" aria-pressed="false">上周</button><button type="button" data-comment-period="total" aria-pressed="false">总赞榜</button></div></div>
+ <div class="comment-board-meta"><span id="comment-board-dates"></span><div><span id="comment-board-count"></span><button type="button" id="refresh-comment-board" class="text-button">刷新</button></div></div>
+ <p id="comment-board-status" class="comment-board-status" role="status" hidden></p>
+ <div id="comment-board-podium" class="comment-board-podium" aria-label="评论榜前三名"></div>
+ <div id="comment-board-empty" class="comment-board-empty" hidden><p>本周的神评论，等你来选。</p><button type="button" class="text-button" id="comment-board-explore">去照片墙看看 →</button></div>
+ <div id="comment-board-list" class="comment-board-list" aria-label="更多评论排名"></div>
+ <button type="button" id="more-comment-board" class="text-button comment-board-more" hidden>加载更多评论</button>
+ <details class="contest-rules"><summary>榜单规则</summary><p>北京时间每周一 00:00 重置点赞机会，同一关联账号组每周可给同一条评论点一次赞，取消只影响本周。本周按有效赞排序，同赞数依次比较累计总赞、评论时间；总赞榜按累计赞排序。前三名不在下方重复展示，点击来源照片可定位原评论。排名在刷新后更新，上周成绩结算后保留；评论或照片删除后不再展示。</p></details>
+</section>
+<section class="gallery-section" aria-label="随机照片墙">
+      <section id="weekly-contest" class="weekly-contest" aria-labelledby="contest-title" hidden>
+  <div class="contest-heading"><div><p class="contest-eyebrow">CLASS 7 / WEEKLY</p><h2 id="contest-title">每周大赛</h2></div><div class="contest-periods" role="group" aria-label="选择大赛周次"><button type="button" id="contest-current" aria-pressed="true">本周</button><button type="button" id="contest-previous" aria-pressed="false" disabled>上周</button></div></div>
+  <div class="contest-period-line"><span id="contest-dates">正在读取本期大赛…</span><span id="contest-state"></span></div>
+  <p id="contest-first-period" class="contest-first-period" hidden></p>
+  <div id="contest-podium" class="contest-podium" aria-label="每周大赛前三名"></div>
+  <div id="contest-empty" class="contest-empty" hidden><p id="contest-empty-message">本期还没有有效点赞，前三名等你来选。</p><button type="button" id="contest-explore" class="text-button">去照片墙，给喜欢的照片点赞 →</button></div>
+  <details class="contest-rules"><summary>大赛规则</summary><p>北京时间每周一 00:00 重置点赞机会，每个账号每周可给每张照片点一次赞，以前赞过的照片也可重新点赞。本周有效赞决定排名，同分依次按累计总赞、最新上传时间排序。取消只影响本周，重复点击不会增加票数；关联账号每周共用一票。历史总赞继续累计，上周成绩结算后保留，已删除的照片不再展示。</p></details>
+</section>
+<div class="gallery-toolbar">
+        <div class="gallery-heading"><h2 id="gallery-title">全班的瞬间</h2><span class="count-badge" id="photo-count">0</span></div>
+        <div class="wall-controls"><button class="text-button" id="start-bulk" hidden>批量管理</button><button class="text-button" id="refresh-gallery" aria-label="刷新共享相册">刷新</button><label class="select-wrap photo-order-control"><span class="sr-only">照片排列方式</span><select id="photo-order" aria-label="照片排列方式"><option value="random">随机照片墙</option><option value="likes">点赞排行</option><option value="weekly">每周大赛</option></select><svg class="icon"><use href="#i-chevron"/></svg></label><label class="select-wrap"><span class="sr-only">按上传者筛选</span><select id="uploader-filter"><option value="">所有上传者</option></select><svg class="icon"><use href="#i-chevron"/></svg></label><span class="control-divider"></span><button class="icon-button" id="shuffle-button" title="换一种排列" aria-label="随机排列照片"><svg class="icon"><use href="#i-shuffle"/></svg></button><button type="button" id="wall-view-toggle" class="text-button wall-view-toggle" aria-pressed="true">切换流动照片墙</button><label class="wall-speed-control" for="wall-speed"><span>流速</span><select id="wall-speed" aria-label="照片墙滚动速度"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="3">3×</option></select></label><button class="button button-quiet motion-button" id="motion-button" aria-pressed="true"><svg class="icon"><use href="#i-pause"/></svg><span>暂停滚动</span></button><button class="icon-button fullscreen-button" id="fullscreen-button" title="沉浸浏览" aria-label="全屏浏览照片墙"><svg class="icon"><use href="#i-expand"/></svg></button></div>
+      </div>
+      <div class="account-recovery-notice" id="account-recovery-notice" hidden><p>找不到以前上传的照片？登录原来的照片集账号，或在原上传浏览器中关联旧照片。</p><button type="button" class="text-button" id="restore-account">登录 / 找回管理权限 →</button></div><div class="bulk-toolbar" id="bulk-toolbar" hidden><div class="bulk-selection"><strong id="bulk-count" aria-live="polite">已选 0 张</strong><button class="text-button" id="bulk-select-all">全选当前显示</button></div><div class="bulk-actions"><button class="text-button" id="cancel-bulk">取消</button><button class="button button-danger" id="review-bulk-delete" disabled>删除所选</button></div><p>点击照片选择 · 全选仅包含当前筛选下已加载的照片</p></div><p class="form-error bulk-error" id="bulk-error" role="alert" hidden></p>
+      <div class="local-sync-notice" id="local-sync-notice" hidden><p>发现 <strong id="local-count"></strong> 张旧版本机照片，尚未分享。</p><button class="text-button" id="sync-local">同步到共享相册 →</button></div><p class="gallery-error" id="gallery-error" role="alert" hidden></p><button class="text-button load-more" id="load-more-photos" hidden>加载更多照片</button><p id="ranking-note" class="ranking-note" hidden>点赞从高到低 · 同赞数按最新上传排序 · 刷新更新名次</p><div class="wall-shell" id="wall-shell"><div class="photo-wall" id="photo-wall" aria-label="照片，点击可查看大图"></div><div class="wall-loading" id="wall-loading" role="status">正在载入照片…</div><div class="wall-empty" id="wall-empty" hidden><span class="empty-icon"><svg class="icon"><use href="#i-image"/></svg></span><h3>让第一张照片，从你开始。</h3><p>这里会收集你为七班留下的瞬间。</p><button class="button button-primary" data-open-upload><svg class="icon"><use href="#i-plus"/></svg>上传我的照片</button><button class="text-button" id="clear-filter" hidden>查看全部照片</button></div></div>
+      <div class="gallery-footer"><span class="wall-status"><span class="live-dot"></span><span id="wall-status">照片缓缓流动，随时可以停下</span></span><span class="gallery-hint">滚轮可探索<span class="hint-dot">·</span>点击照片，靠近一点 <svg class="icon"><use href="#i-arrow"/></svg></span></div>
+    </section>
+
+    <section class="share-invitation"><h2>那些一起走过的日子，都在这里。</h2><button class="text-button invitation-cta" data-open-upload>给七班留下一个瞬间 <svg class="icon"><use href="#i-arrow"/></svg></button></section>
+  </main>
+  <footer class="site-footer"><span>高三七班照片集 / CLASS 7</span><p>OUR MEMORIES.</p><button class="text-button" id="footer-preview">使用须知</button></footer></div>
+
+  <dialog class="upload-edit-dialog" id="upload-edit-dialog" aria-labelledby="upload-edit-title">
+    <div class="dialog-heading"><div><span class="eyebrow">BEFORE YOU SHARE</span><h2 id="upload-edit-title">编辑这张照片</h2><p id="upload-edit-name" class="upload-edit-name"></p></div><button type="button" class="icon-button" data-close-dialog="upload-edit-dialog" aria-label="完成单张编辑"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <div class="upload-edit-scroll"><div class="upload-edit-stage" id="upload-edit-stage"><img id="upload-edit-image" alt=""></div>
+      <div class="upload-edit-controls"><span>调整方向 <strong id="upload-edit-angle" role="status">0°</strong></span><div class="rotation-buttons"><button type="button" class="rotation-button" id="upload-edit-left" aria-label="上传前向左旋转 90°"><svg class="icon rotate-left-icon"><use href="#i-rotate"/></svg>左转</button><button type="button" class="rotation-button" id="upload-edit-right" aria-label="上传前向右旋转 90°"><svg class="icon"><use href="#i-rotate"/></svg>右转</button></div></div>
+      <div class="form-field"><label for="upload-edit-caption">这张照片的说明<span class="optional">选填</span></label><textarea id="upload-edit-caption" rows="2" maxlength="500" placeholder="留空使用统一说明"></textarea><p class="upload-edit-note"><span>方向和说明会随这张照片一起上传。</span><span id="upload-edit-caption-count">0 / 500</span></p></div>
+    </div><div class="dialog-actions"><div class="upload-edit-navigation"><button type="button" class="icon-button" id="upload-edit-previous" aria-label="编辑上一张待上传照片"><svg class="icon rotate-left-icon"><use href="#i-chevron"/></svg></button><span id="upload-edit-position"></span><button type="button" class="icon-button" id="upload-edit-next" aria-label="编辑下一张待上传照片"><svg class="icon"><use href="#i-chevron"/></svg></button></div><button type="button" class="button button-primary" data-close-dialog="upload-edit-dialog">完成编辑</button></div>
+  </dialog>
+
+  <dialog class="upload-dialog" id="upload-dialog" aria-labelledby="upload-title"><div class="dialog-heading"><div><span class="eyebrow">SHARE A MOMENT</span><h2 id="upload-title">分享你的瞬间</h2></div><button class="icon-button" data-close-dialog="upload-dialog" aria-label="关闭上传窗口"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <form id="upload-form"><div class="upload-scroll"><label class="drop-zone" id="drop-zone"><input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" multiple><span class="drop-icon"><svg class="icon"><use href="#i-upload"/></svg></span><strong>把照片拖到这里，或点击选择</strong><span>支持 JPG、PNG、WebP、GIF、AVIF，可一次选择多张</span><span class="file-note">可批量上传 · 上传完成后即可查看</span></label><div class="compression-options"><label class="compression-choice"><input type="checkbox" id="auto-compress" checked><span>自动压缩大照片</span></label><p>超过 12 MB 时压缩至 6 MB 以内，优先保留照片尺寸，保留本地原文件。压缩后上传及下载的都是压缩版；动图不自动转换。</p></div><div class="photo-notes-tools" id="photo-notes-tools" hidden><span id="photo-notes-summary"></span><button type="button" class="text-button" id="toggle-photo-notes" aria-expanded="false" aria-controls="selected-files">逐张填写说明</button></div><p class="upload-edit-hint" id="upload-edit-hint" hidden>点击照片可旋转或填写说明。</p><div class="selected-files" id="selected-files" role="list" aria-label="已选择的照片"></div>
+      <div class="upload-identity"><span>以 <strong id="upload-nickname"></strong> 的身份分享</span><button type="button" class="text-button" id="change-upload-name">修改昵称</button></div>
+      <div class="form-field"><label for="photo-title">照片标题<span class="optional">选填</span></label><input id="photo-title" name="title" placeholder="留空自动命名为“昵称＋数字”" maxlength="100"><p>留空时每张照片分别编号，例如“小林 1”“小林 2”；填写标题则应用于本次全部照片。</p></div>
+      <div class="form-field"><label for="photo-caption">统一说明<span class="optional">选填</span></label><textarea id="photo-caption" name="caption" rows="3" maxlength="500" placeholder="可以先写一段共同的说明，再为个别照片单独填写"></textarea><p>未单独填写说明的照片会使用这段文字。选择照片后，点击“逐张填写说明”可分别编辑。</p></div>
+      <div class="preview-notice"><svg class="icon"><use href="#i-info"/></svg><p>这是<strong>公开相册</strong>，持有链接的人都能查看和下载照片。上传后立即公开，请只分享你愿意公开的照片。</p></div><p class="form-error" id="upload-error" role="alert" hidden></p><progress id="upload-progress" max="100" value="0" hidden></progress>
+    </div><div class="dialog-actions"><span id="selection-summary">还没有选择照片</span><button type="submit" class="button button-primary" id="submit-upload"><svg class="icon"><use href="#i-upload"/></svg>加入照片墙</button></div></form>
+  </dialog>
+
+  <dialog id="photo-manager" class="photo-manager" aria-labelledby="photo-manager-title">
+ <header class="photo-manager-heading"><div><span class="eyebrow">CLASS 7 / ADMIN</span><h2 id="photo-manager-title">照片管理</h2></div><div><button type="button" class="button button-primary" id="manager-upload">上传卡牌 ＋</button><button type="button" class="icon-button" data-close-dialog="photo-manager" aria-label="关闭照片管理"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div></header>
+ <p class="photo-manager-intro">为已有照片设置等级，或上传新卡牌。原照片、点赞、评论和收藏保留；保密级仅在商城刷新，不公开展示。</p>
+ <form id="manager-search-form" class="manager-search-form"><label class="manager-search-label" for="manager-search">查找照片<input id="manager-search" type="search" maxlength="100" placeholder="搜索照片名或上传者" autocomplete="off"></label><label for="manager-rarity-filter">卡牌等级<select id="manager-rarity-filter"><option value="all">全部等级</option><option value="common">普通</option><option value="epic">史诗</option><option value="legendary">传奇</option><option value="classified">保密级</option></select></label><button type="submit" class="button button-secondary">查询</button><button type="button" class="text-button" id="manager-refresh">刷新</button></form>
+ <div class="manager-summary"><span id="manager-count"></span><span id="manager-status" role="status" aria-live="polite"></span></div>
+ <div id="manager-photos" class="manager-photos" aria-label="照片管理列表"></div><p id="manager-empty" class="manager-empty" hidden>没有找到照片，试试其他名称或等级。</p><button type="button" id="manager-more" class="text-button manager-more" hidden>加载更多照片</button>
+</dialog>
+<dialog class="lightbox" id="lightbox" aria-labelledby="lightbox-title"><div class="lightbox-toolbar"><span class="lightbox-position" id="lightbox-position"></span><div><a class="photo-download" id="download-photo" download aria-label="下载照片" title="下载照片，保存网站中的照片"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span>下载照片</span></a><button type="button" class="photo-download save-photo-options" id="save-photo-options" aria-label="选择照片保存方式">保存到…</button><button class="icon-button" id="details-toggle" aria-controls="photo-details" aria-expanded="true" aria-label="显示或隐藏照片信息"><svg class="icon"><use href="#i-info"/></svg></button><button class="icon-button" data-close-dialog="lightbox" aria-label="关闭大图"><svg class="icon"><use href="#i-close"/></svg></button></div></div><div class="photo-rotation-tools" id="photo-rotation-tools" hidden><span>调整方向 <strong id="rotation-angle">0°</strong></span><div class="rotation-buttons"><button class="rotation-button" id="rotate-left" type="button" aria-label="向左旋转 90°"><svg class="icon rotate-left-icon" aria-hidden="true"><use href="#i-rotate"/></svg>左转</button><button class="rotation-button" id="rotate-right" type="button" aria-label="向右旋转 90°"><svg class="icon" aria-hidden="true"><use href="#i-rotate"/></svg>右转</button></div><span class="rotation-status" id="rotation-status" role="status" aria-live="polite">每次 90° · 自动保存</span></div><div class="lightbox-body"><button class="lightbox-nav previous" id="previous-photo" aria-label="上一张照片"><svg class="icon"><use href="#i-chevron"/></svg></button><div class="lightbox-image-wrap"><div class="lightbox-image-stage" id="lightbox-image-stage"><img id="lightbox-image" alt=""></div></div><button class="lightbox-nav next" id="next-photo" aria-label="下一张照片"><svg class="icon"><use href="#i-chevron"/></svg></button><aside class="photo-details" id="photo-details"><span class="eyebrow">A LITTLE STORY</span><h2 id="lightbox-title"></h2><p id="lightbox-caption"></p><button type="button" id="caption-expand" class="text-button caption-expand" aria-expanded="false" aria-controls="lightbox-caption" hidden>展开完整说明</button><button type="button" class="text-button edit-caption" id="edit-caption" hidden>编辑说明</button><section id="admin-rarity-tools" class="admin-rarity-tools" aria-label="管理员卡牌设置" hidden>
+ <button type="button" class="text-button" id="edit-photo-rarity">设置卡牌等级</button>
+ <form id="photo-rarity-form" hidden>
+  <label for="photo-rarity-select">卡牌等级</label>
+  <div class="admin-rarity-row"><select id="photo-rarity-select"><option value="common">普通</option><option value="epic">史诗</option><option value="legendary">传奇</option><option value="classified">保密级</option></select><button type="submit" class="button button-primary" id="save-photo-rarity">保存</button><button type="button" class="text-button" id="cancel-photo-rarity">取消</button></div>
+  <p class="admin-rarity-hint">直接修改这张照片，不会重复上传。原有点赞、评论和收藏保留。保密级不会公开展示。</p>
+ </form>
+ <p id="photo-rarity-status" class="admin-rarity-hint" role="status" aria-live="polite" hidden></p>
+</section>
+<form id="caption-edit-form" class="caption-edit-form" hidden><label for="caption-input">修改照片说明</label><textarea id="caption-input" rows="4" maxlength="500" placeholder="补充这个瞬间的故事，留空可清除说明"></textarea><p class="caption-edit-hint"><span>保存后所有访客可见</span><span id="caption-edit-count">0 / 500</span></p><div class="caption-edit-actions"><button type="button" class="text-button" id="cancel-caption">取消</button><button type="submit" class="button button-primary" id="save-caption">保存说明</button></div></form><p id="caption-save-status" class="caption-save-status" role="status" aria-live="polite" hidden></p><div class="photo-like-row" id="photo-like-row">
+ <button type="button" id="photo-like-button" class="photo-like-button" aria-pressed="false" aria-label="给照片点赞">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+  <span id="photo-like-label">本周点赞</span><span class="photo-like-count" id="photo-like-count" aria-live="polite" title="累计总赞数">0</span>
+ </button>
+ <p id="photo-like-status" class="photo-like-status" role="status" hidden></p>
+</div>
+<details class="photo-extra-info" id="photo-extra-info" open><summary>更多信息与管理</summary><dl><div><dt>上传者</dt><dd id="lightbox-uploader"></dd></div><div><dt>上传时间</dt><dd id="lightbox-date"></dd></div><div><dt>照片尺寸</dt><dd id="lightbox-dimensions"></dd></div></dl><span class="detail-tag" id="lightbox-tag"></span><button class="button button-danger" id="delete-photo" hidden><svg class="icon"><use href="#i-trash"/></svg>删除这张照片</button><p class="delete-help" id="delete-help" hidden>登录上传时的照片集账号可管理自己的照片。</p></details></aside></div><section class="comments-section" aria-labelledby="comments-heading"><div class="comments-heading"><h3 id="comments-heading">留言 <span id="comment-count">0</span></h3><button class="text-button" id="refresh-comments" type="button">刷新</button></div><button class="text-button" id="older-comments" hidden>查看更早留言</button><button type="button" class="text-button" id="latest-comments" hidden>查看最新留言 →</button><div id="comment-list" class="comment-list" aria-live="polite"></div><p class="form-error" id="comment-error" role="alert" hidden></p><div id="comment-reply-target" class="comment-reply-target" hidden><span id="comment-reply-target-name"></span><button type="button" id="cancel-comment-reply">取消</button></div><form id="comment-form"><label for="comment-body" id="comment-identity">留下几句话</label><textarea id="comment-body" maxlength="1000" rows="3" placeholder="说说这个瞬间……" required></textarea><div class="comment-emoji-controls"><button type="button" class="comment-tool" id="comment-emoji-toggle" aria-expanded="false" aria-controls="comment-emoji-picker">照片表情</button><div id="comment-emoji-selected" class="comment-emoji-selected" hidden><img id="comment-emoji-selected-image" alt="已选照片表情"><button type="button" id="comment-emoji-remove" aria-label="移除照片表情">×</button></div></div><section id="comment-emoji-picker" class="comment-emoji-picker" aria-label="从我的库存选择表情" hidden><div class="comment-emoji-picker-head"><span>我的库存</span><button type="button" class="comment-tool" id="comment-emoji-picker-close">收起</button></div><p id="comment-emoji-status" role="status"></p><div id="comment-emoji-grid" class="comment-emoji-grid"></div><button type="button" class="comment-tool" id="comment-emoji-more" hidden>加载更多</button><button type="button" class="comment-tool" id="comment-emoji-shop" hidden>去商城收藏照片</button></section><div class="comment-actions"><span>所有访客可见</span><button type="submit" class="button button-primary" id="send-comment">发送留言</button></div></form></section></dialog>
+
+  <dialog class="save-photo-dialog" id="save-photo-dialog" aria-labelledby="save-photo-title"><div class="dialog-heading"><div><span class="eyebrow">KEEP THIS MOMENT</span><h2 id="save-photo-title">保存照片</h2><p id="save-photo-name" class="save-photo-name"></p></div><button type="button" class="icon-button" data-close-dialog="save-photo-dialog" aria-label="关闭保存窗口"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="save-photo-body"><section class="save-method"><h3>保存到电脑</h3><p id="save-desktop-help"></p><div class="save-method-actions"><button type="button" class="button button-primary" id="save-location">选择桌面或文件夹</button><a class="button button-secondary" id="save-browser-download" download>直接下载照片</a></div></section><section class="save-method"><h3>保存到手机相册</h3><p>打开照片后，长按图片，选择“保存图片”或“存储到照片”。支持的手机也可以通过系统菜单保存。</p><div class="save-method-actions"><button type="button" class="button button-secondary" id="prepare-phone-save">准备手机保存</button><button type="button" class="button button-primary" id="share-phone-save" hidden>打开系统保存菜单</button><a class="text-button" id="save-open-original" target="_blank" rel="noopener">打开照片，长按保存 →</a></div></section><p class="save-photo-status" id="save-photo-status" role="status" aria-live="polite" hidden></p></div></dialog>
+  <dialog class="info-dialog usage-notice" id="info-dialog" aria-labelledby="info-title" aria-describedby="usage-summary">
+  <div class="dialog-heading"><div><span class="eyebrow">CLASS 7 / PLEASE READ</span><h2 id="info-title">使用须知</h2></div><button type="button" class="icon-button" data-close-dialog="info-dialog" aria-label="关闭使用须知"><svg class="icon"><use href="#i-close"/></svg></button></div>
+  <div class="info-body">
+    <p id="usage-summary">欢迎来到七班照片集，分享前请留意：</p>
+    <ul class="usage-list">
+      <li><strong>上传</strong><p>登录后支持一次选择多张照片，批量上传。超过 12 MB 默认压缩至 6 MB 以内，画质可能下降；可关闭压缩，本地原图不变。</p></li>
+      <li><strong>下载</strong><p>下载的是网站保存的版本，可能已压缩。保存位置及存入手机相册的方式取决于设备和浏览器。</p></li>
+      <li><strong>存储与流量</strong><p>网站使用免费额度，用完可能暂停上传、浏览或下载。请自行备份原图。</p></li>
+      <li><strong>管理照片</strong><p>登录上传时的同一账号，可修改说明、旋转或删除自己的照片。请记好账号和密码。</p></li>
+      <li><strong>公开分享</strong><p>上传后，持有链接的人即可查看、下载和查看评论。请先征得照片中同学的同意。</p></li>
+    </ul>
+  </div>
+  <div class="info-footer"><button type="button" class="button button-primary" data-close-dialog="info-dialog" autofocus>我知道了，进入相册 <svg class="icon"><use href="#i-arrow"/></svg></button></div>
+</dialog>
+
+
+  <dialog class="confirm-dialog" id="delete-dialog" aria-labelledby="delete-title"><span class="confirm-icon"><svg class="icon"><use href="#i-trash"/></svg></span><h2 id="delete-title">删除这个瞬间？</h2><p id="delete-description">照片和它下面的留言将从共享相册中删除，删除后无法恢复。</p><div class="confirm-actions"><button class="button button-secondary" data-close-dialog="delete-dialog">保留照片</button><button class="button button-danger" id="confirm-delete">确认删除</button></div></dialog>
+  <dialog class="confirm-dialog bulk-delete-dialog" id="bulk-delete-dialog" aria-labelledby="bulk-delete-title"><span class="confirm-icon"><svg class="icon"><use href="#i-trash"/></svg></span><h2 id="bulk-delete-title">删除选中的照片？</h2><div class="bulk-preview" id="bulk-preview"></div><p id="bulk-delete-description">这些照片及其留言会一起删除，删除后无法恢复。</p><p id="bulk-progress" role="status" hidden></p><div class="confirm-actions"><button class="button button-secondary" data-close-dialog="bulk-delete-dialog" id="keep-bulk">保留照片</button><button class="button button-danger" id="confirm-bulk-delete">确认删除</button></div></dialog>
+  <dialog class="login-dialog" id="login-dialog" aria-labelledby="login-title"><div class="dialog-heading"><div><span class="eyebrow">YOUR CLASS 7 ACCOUNT</span><h2 id="login-title">登录照片集</h2></div><button class="icon-button" data-close-dialog="login-dialog" aria-label="关闭账号窗口"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <div class="account-content"><section id="account-auth"><div class="account-tabs" role="group" aria-label="账号操作"><button type="button" class="text-button" id="account-mode-login" aria-pressed="true">登录</button><button type="button" class="text-button" id="account-mode-register" aria-pressed="false">注册账号</button></div><p class="account-help">使用原来的登录账号和密码，找回照片管理权限。昵称可以重复，新账号可在登录后验证并关联原账号，共享照片管理。</p><form id="account-form"><div class="form-field"><label for="account-name">登录账号</label><input id="account-name" name="username" autocomplete="username" placeholder="3–32 位英文字母或数字，可含 _ . -" minlength="3" maxlength="32" required autocapitalize="none" spellcheck="false"></div><div class="form-field"><label for="account-password">密码</label><input type="password" id="account-password" name="password" autocomplete="current-password" minlength="6" maxlength="128" placeholder="至少 6 位" required></div><div id="account-register-fields" hidden><div class="form-field"><label for="account-confirm">再次输入密码</label><input type="password" id="account-confirm" autocomplete="new-password" minlength="6" maxlength="128"></div><div class="form-field"><label for="account-nickname">展示昵称</label><input id="account-nickname" autocomplete="nickname" maxlength="40" placeholder="大家熟悉的那个名字"></div><p class="account-help">已有账号可直接登录。新账号注册后，也可在账号管理中验证并关联原账号，共同管理照片。</p></div><p class="form-error" id="account-error" role="alert" hidden></p><button type="submit" class="button button-primary account-submit" id="account-submit">登录并恢复管理</button></form></section>
+    <section id="account-settings" hidden><p class="account-heading">已登录 <strong id="account-username"></strong></p><div class="account-points" id="account-points" hidden><div class="account-points-score"><span class="account-points-label">当前积分</span><strong id="account-points-value">0</strong></div><p class="account-points-meta" id="account-points-meta">每日签到和互动可获得积分</p></div><p class="account-help">换设备后使用这个登录账号和密码，即可继续管理自己的照片。</p><form id="login-form"><div class="form-field"><label for="nickname-input">展示昵称</label><input id="nickname-input" maxlength="40" autocomplete="nickname" required><p>昵称用于显示，登录账号保持不变。</p></div><p class="form-error" id="login-error" role="alert" hidden></p><button class="button button-secondary" id="save-nickname" type="submit">保存昵称</button></form><section class="account-linking-panel">
+ <p id="account-link-current" class="account-help"></p>
+ <p id="linked-accounts-summary" class="account-help" hidden></p>
+ <details id="account-link-details"><summary>关联自己的另一个账号</summary>
+  <p class="account-help">验证另一个账号的密码后，两个账号及各自已关联的账号，都能管理双方已有和今后上传的照片与留言。共享昵称以被关联账号为准，登录账号和密码各自保留。</p>
+  <form id="account-link-form">
+   <div class="form-field"><label for="link-account-name">另一个登录账号</label><input id="link-account-name" name="username" autocomplete="username" minlength="3" maxlength="32" required autocapitalize="none" spellcheck="false" placeholder="填写原账号或要关联的账号"></div>
+   <div class="form-field"><label for="link-account-password">该账号的密码</label><input id="link-account-password" name="password" type="password" autocomplete="current-password" minlength="6" maxlength="128" required placeholder="在此验证密码，不会保存"></div>
+   <button type="submit" class="button button-secondary" id="link-account-submit">验证并关联账号</button>
+  </form>
+ </details>
+ <p id="account-link-result" class="account-help" role="status" hidden></p>
+ <details id="account-unlink-details" hidden><summary>解除账号关联</summary>
+  <p class="account-help">解除后，现有共享照片和留言继续由当前账号及其余关联账号管理；被移除账号不再拥有这些内容的管理权限。不会删除账号、照片或留言。照片仍可按相册的公开权限浏览和下载。</p>
+  <form id="account-unlink-form">
+   <div class="form-field"><label for="unlink-account-name">要移除的关联账号</label><select id="unlink-account-name" required></select></div>
+   <button type="button" class="button button-secondary" id="unlink-account-preview">查看解除影响</button>
+   <div id="unlink-confirm-panel" hidden>
+    <p id="unlink-impact" class="account-help" role="status"></p>
+    <div class="form-field"><label for="unlink-account-password">当前登录账号的密码</label><input id="unlink-account-password" type="password" autocomplete="current-password" minlength="6" maxlength="128" required disabled placeholder="验证当前账号，不是被移除账号的密码"></div>
+    <label class="unlink-consent"><input type="checkbox" id="unlink-account-consent" required disabled><span>我确认移除该账号的共享管理权限，现有内容保留给当前账号及其余关联账号。</span></label>
+    <button type="submit" class="button button-secondary" id="unlink-account-submit" disabled>确认解除关联</button>
+   </div>
+  </form>
+ </details>
+ <p id="account-unlink-result" class="account-help" role="status" hidden></p>
+</section>
+<section class="legacy-account-panel"><h3>关联旧版照片</h3><p id="legacy-account-summary" class="account-help"></p><button class="button button-secondary" type="button" id="link-existing" hidden>关联到当前账号</button><p id="legacy-account-result" class="account-help" role="status" hidden></p><details><summary>找不到早期私有预览上传的照片？</summary><p class="account-help">如果照片是在最初的私有预览中上传，可用当时的旧版账号验证一次，再关联到现在的照片集账号。之后只需照片集账号和密码。</p><a class="text-button" id="verify-legacy" target="_top">验证旧版上传身份 →</a></details></section><button type="button" class="text-button account-logout" id="account-logout">退出照片集账号</button></section></div>
+  </dialog>
+  <dialog id="reply-inbox" class="reply-inbox" aria-labelledby="reply-inbox-title"><div class="dialog-heading"><div><span class="eyebrow">REPLIES</span><h2 id="reply-inbox-title">回复我的</h2></div><button type="button" class="icon-button" data-close-dialog="reply-inbox" aria-label="关闭回复提醒"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="reply-inbox-body"><p class="reply-inbox-help">有人回复你的留言时，会在这里显示对方的昵称和登录账号。</p><div id="reply-inbox-list"></div><p id="reply-inbox-error" class="form-error" hidden></p></div></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden><svg class="icon"><use href="#i-check"/></svg><span></span></div>
+</body>
+</html>
