@@ -28,6 +28,6 @@ async function reloadPhotoOrder(){
  catch(error){if(epoch===photoOrderEpoch){$('#gallery-error').textContent=error.message||'排行加载失败，请刷新重试。';$('#gallery-error').hidden=false;}}
  finally{if(epoch===photoOrderEpoch)$('#photo-order').removeAttribute('aria-busy');}
 }
-async function changePhotoFilter(value){app.filter=value;if(rankingActive())await reloadPhotoOrder();else{refreshFilter();renderWall();}}
+async function changePhotoFilter(value){app.filter=value;if(rankingActive())await reloadPhotoOrder();else{refreshFilter();renderWall();try{for(let p,c;value&&!rankingActive()&&app.filter===value&&(c=app.view==='mine'?app.mineCursor:app.nextCursor)&&c!==p;p=c)await loadCloud(true);}catch(error){toast(error.message);}}}
 $('#photo-order').addEventListener('change',async event=>{photoOrder=['likes','weekly'].includes(event.target.value)?event.target.value:'random';if(photoOrder==='weekly'){app.view='all';app.filter='';contestPeriod='current';}safeWrite('class7-photo-order',photoOrder);await reloadPhotoOrder();});
 updatePhotoOrderUI();
