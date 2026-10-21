@@ -6,3 +6,4 @@ assert(html.includes('id="mall-nav"')&&html.includes('id="mall-board"'));assert(
 console.log('PASS build outputs, syntax, 6 MB compression, speed control, login recovery, points mall and Linux bootstrap');
 
 assert(html.includes('id="camera-intro"')&&html.includes('id="camera-shutter"'));assert(js.includes('setupCameraIntro();'));assert(fs.readFileSync('public/editorial.css','utf8').includes('camera-iris-canvas'));
+assert(html.includes('id="draw-cinema"')&&html.includes('id="draw-cinema-playback"')&&html.includes('id="draw-cinema-screen"')&&html.includes('id="draw-cinema-skip"'));assert(js.includes('function playDrawCinema(')&&js.includes('function advanceDrawCinema(')&&js.includes('await playDrawCinema(drawState.entries)'));assert(fs.readFileSync('public/editorial.css','utf8').includes('.draw-cinema-screen'));

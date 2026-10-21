@@ -146,7 +146,9 @@ browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(ro
 browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/photo-manager-ui.js'),'utf8')+'\ninit();');
 browserApp=browserApp.replace('return data;}', 'if(data.points&&requestGeneration===ownershipGeneration)document.dispatchEvent(new CustomEvent("class7:points",{detail:data.points}));return data;}');
 browserApp=browserApp.replace('return !app.mallOpen&&!app.commentBoardOpen&&app.playing','return !app.drawOpen&&!app.mallOpen&&!app.commentBoardOpen&&app.playing');
-browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/draw-ui.js'),'utf8')+'\ninit();');
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/draw-cinema.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/draw-ui.js'),'utf8')+'\ninit();');
+if(!browserApp.includes('await playDrawCinema(drawState.entries)'))throw Error('Draw cinema hook changed');
+if(!browserApp.includes('function playDrawCinema('))throw Error('Draw cinema function missing');
 fs.writeFileSync(path.join(root,'public/app.js'),browserApp);
 fs.cpSync(path.join(old,'public/fonts'),path.join(root,'public/fonts'),{recursive:true});
 let html=fs.readFileSync(path.join(old,'public/album.html'),'utf8');
@@ -157,7 +159,10 @@ html=html.replace('</nav>','<button type="button" class="contest-nav comment-con
 html=html.replace('</nav>','<button type="button" class="contest-nav mall-nav" id="mall-nav">商城</button></nav>');
 html=html.replace('</nav>','<button type="button" class="contest-nav" id="draw-nav">抽卡</button></nav>');
 html=html.replace('<section class="gallery-section"',()=>fs.readFileSync(path.join(root,'src/draw.html'),'utf8')+'<section class="gallery-section"');
+if(!html.includes('</body>'))throw Error('Draw cinema HTML hook changed');
+html=html.replace('</body>',()=>'\n'+fs.readFileSync(path.join(root,'src/draw-cinema.html'),'utf8')+'\n</body>');
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/draw.css'),'utf8'));
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/draw-cinema.css'),'utf8'));
 html=html.replace('<dialog class="lightbox"',()=>fs.readFileSync(path.join(root,'src/photo-manager.html'),'utf8')+'<dialog class="lightbox"');
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/photo-manager.css'),'utf8'));
 html=html.replace('<form id="caption-edit-form"',()=>fs.readFileSync(path.join(root,'src/admin-rarity.html'),'utf8')+'<form id="caption-edit-form"');

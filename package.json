@@ -8,7 +8,8 @@
     "audit:source": "node scripts/audit-source.cjs",
     "check:points-races": "node scripts/verify-checkin-races.cjs",
     "check:collection": "node scripts/verify-collection.cjs",
-    "check:camera": "node scripts/verify-camera-intro.cjs"
+    "check:camera": "node scripts/verify-camera-intro.cjs",
+    "check:draw-cinema": "node scripts/verify-draw-cinema.cjs"
   },
   "devDependencies": {
     "@cloudbase/cli": "3.8.7",
