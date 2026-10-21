@@ -18,9 +18,9 @@ GRANT SELECT ON class7_test.photo_vault_admins TO service_role;
 ALTER TABLE class7_test.photo_rarities DROP CONSTRAINT IF EXISTS photo_rarities_rarity_check;
 ALTER TABLE class7_test.photo_rarities ADD CONSTRAINT photo_rarities_rarity_check CHECK(rarity IN ('common','epic','legendary','classified'));
 
--- Relax price check constraint to include 80
+-- Allow current prices and preserve historical 80-point purchases
 ALTER TABLE class7_test.mall_photo_inventory DROP CONSTRAINT IF EXISTS mall_photo_inventory_price_check;
-ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN (10,20,30,80));
+ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN (9,10,20,30,40,80));
 
 -- Replace 3-pool draw with 4-pool draw (82 / 10 / 5 / 3)
 DROP FUNCTION IF EXISTS class7_test.draw_photo_pool(text[],text[],text[],integer);
@@ -76,7 +76,7 @@ END $$;
 REVOKE ALL ON FUNCTION class7_test.photo_mall_day(text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION class7_test.photo_mall_day(text) TO service_role;
 
--- Update buy_mall_photo with 80 pts classified tier, locking, and single-buyer ownership transfer
+-- Update buy_mall_photo with 40 pts classified tier, locking, and single-buyer ownership transfer
 CREATE OR REPLACE FUNCTION class7_test.buy_mall_photo(p_account text,p_photo text,p_day date,p_request uuid,p_expected_price integer) RETURNS jsonb
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
 DECLARE today date:=(now() AT TIME ZONE 'Asia/Shanghai')::date;
@@ -101,14 +101,14 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM class7_test.mall_photo_offers WHERE account_id=p_account AND day=today AND photo_id=p_photo) THEN
   RETURN jsonb_build_object('bought',false,'error','not_offered');
  END IF;
- SELECT * INTO photo FROM class7_test.photos WHERE id=p_photo FOR SHARE;
+ SELECT * INTO photo FROM class7_test.photos WHERE id=p_photo FOR UPDATE;
  IF NOT FOUND THEN RETURN jsonb_build_object('bought',false,'error','missing'); END IF;
  SELECT rarity INTO tier FROM class7_test.photo_rarities WHERE photo_id=p_photo;
- cost:=CASE tier WHEN 'classified' THEN 80 WHEN 'legendary' THEN 30 WHEN 'epic' THEN 20 ELSE 10 END;
+ cost:=CASE tier WHEN 'classified' THEN 40 WHEN 'legendary' THEN 30 WHEN 'epic' THEN 20 ELSE 10 END;
  IF p_expected_price IS DISTINCT FROM cost THEN RETURN jsonb_build_object('bought',false,'error','price_changed','price',cost); END IF;
 
  IF tier = 'classified' THEN
-  PERFORM 1 FROM class7_test.photos WHERE id = p_photo FOR UPDATE;
+  -- The photo row is already locked before checking global availability.
   IF NOT class7_test.photo_in_vault(p_photo) THEN
    RETURN jsonb_build_object('bought',false,'error','already_sold');
   END IF;
@@ -140,3 +140,13 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION class7_test.buy_mall_photo(text,text,date,uuid,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION class7_test.buy_mall_photo(text,text,date,uuid,integer) TO service_role;
+
+-- Server-only tag used inside the same transaction as the photo insert.
+CREATE OR REPLACE FUNCTION class7_test.mark_vault_photo(p_photo text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM class7_test.photos WHERE id=p_photo) THEN RAISE EXCEPTION 'Missing vault photo'; END IF;
+ INSERT INTO class7_test.photo_rarities(photo_id,rarity) VALUES(p_photo,'classified') ON CONFLICT(photo_id) DO UPDATE SET rarity='classified';
+END $$;
+REVOKE ALL ON FUNCTION class7_test.mark_vault_photo(text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION class7_test.mark_vault_photo(text) TO service_role;

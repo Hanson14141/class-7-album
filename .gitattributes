@@ -1,0 +1,5 @@
+* text=auto
+**/scf_bootstrap text eol=lf
+*.sh text eol=lf
+*.ttf binary
+**/OFL-ArchivoBlack.txt -whitespace

@@ -25,18 +25,20 @@ function shortText(value:unknown,max:number,required=false){if(typeof value!=='s
 function encodeCursor(row:{created_at:string;id:string}){return btoa(JSON.stringify({date:row.created_at,id:row.id}));}
 function decodeCursor(value:string|null){if(!value)return null;try{const x=JSON.parse(atob(value));if(typeof x.date!=='string'||typeof x.id!=='string'||x.date.length>40||x.id.length>50)throw Error();return x as {date:string;id:string};}catch{throw new ApiError(400,'分页信息无效，请刷新相册。');}}
 function photoView(row:Photo,hash:string|null){return {id:row.id,src:`/api/files/${row.id}`,mime:row.mime,uploader:row.uploader,title:row.title,caption:row.caption,bytes:row.bytes,width:row.width,height:row.height,rotation:row.rotation||0,createdAt:row.created_at,demo:false,shared:true,owned:hash===row.owner_hash};}
-async function requirePhoto(id:string){if(!uuid.test(id)||!await database().prepare('SELECT id FROM photos WHERE id=?').bind(id).first())throw new ApiError(404,'这张照片不存在或已被删除。');}
+async function requirePhoto(id:string){if(!uuid.test(id)||!await database().prepare('SELECT id FROM photos WHERE id=? AND NOT class7_test.photo_is_classified(id)').bind(id).first())throw new ApiError(404,'这张照片不存在或已被删除。');}
 
-async function insertPhoto(row:Photo){
+async function insertPhoto(row:Photo,tier:string|null=null){
+ const tag=()=>database().prepare('SELECT class7_test.mark_admin_photo(?,?) WHERE EXISTS(SELECT 1 FROM photos WHERE id=?)').bind(row.id,tier,row.id);
  const values=(title:string)=>[row.id,row.owner_hash,row.uploader,title,row.caption,row.object_key,row.mime,row.bytes,row.width,row.height,row.created_at,row.rotation||0];
  const columns='id,owner_hash,uploader,title,caption,object_key,mime,bytes,width,height,created_at,rotation';
- if(row.title){await database().prepare(`INSERT INTO photos(${columns}) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).bind(...values(row.title)).run();return row.title;}
+ if(row.title){const insert=database().prepare(`INSERT INTO photos(${columns}) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).bind(...values(row.title));if(tier)await database().batch([insert,tag()]);else await insert.run();return row.title;}
  while(true){
   // A transactional batch assigns a number and inserts the photo in one trip.
   // Collisions with an existing custom title are skipped on the next batch.
   const result=await database().batch([
    database().prepare('INSERT INTO photo_name_counters(nickname,last_number) VALUES(?,1) ON CONFLICT(nickname) DO UPDATE SET last_number=last_number+1').bind(row.uploader),
-   database().prepare(`INSERT INTO photos(${columns}) SELECT ?,?,?,(? || ' ' || c.last_number),?,?,?,?,?,?,?,? FROM photo_name_counters c WHERE c.nickname=? AND NOT EXISTS(SELECT 1 FROM photos WHERE title=(? || ' ' || c.last_number)) RETURNING title`).bind(...values(row.uploader),row.uploader,row.uploader)
+   database().prepare(`INSERT INTO photos(${columns}) SELECT ?,?,?,(? || ' ' || c.last_number),?,?,?,?,?,?,?,? FROM photo_name_counters c WHERE c.nickname=? AND NOT EXISTS(SELECT 1 FROM photos WHERE title=(? || ' ' || c.last_number)) RETURNING title`).bind(...values(row.uploader),row.uploader,row.uploader),
+   ...(tier?[tag()]:[])
   ]);
   const inserted=result[1].results[0] as {title:string}|undefined;if(inserted)return inserted.title;
  }
@@ -50,33 +52,37 @@ export async function handlePhotoApi(request:Request){
    if(method==='GET')return response(await profileState(request));
    if(method==='POST'){const hash=await ownerHash(request);if(!hash)throw new ApiError(401,'请允许浏览器记住你的身份后重试。');const data=await jsonBody(request);const nickname=shortText(data.nickname,40,true).replace(/\s+/g,' ');const now=new Date().toISOString();await database().prepare('INSERT INTO profiles(device_hash,nickname,created_at,updated_at) VALUES(?,?,?,?) ON CONFLICT(device_hash) DO UPDATE SET nickname=excluded.nickname,updated_at=excluded.updated_at').bind(hash,nickname,now,now).run();return response({profile:{nickname}});}
   }
+  if(parts[0]==='admin'&&parts.length===2&&parts[1]==='photos'&&method==='GET')return await adminPhotosRoute(request);
+  if(parts[0]==='admin'&&parts.length===4&&parts[1]==='photos'&&parts[3]==='rarity'&&['GET','POST'].includes(method))return await adminPhotoRarityRoute(request,parts[2]);
   if(parts[0]==='vault'&&parts.length===2&&parts[1]==='status'&&method==='GET')return await vaultStatusRoute(request);
    const isVault=parts[0]==='vault'&&parts.length===2&&parts[1]==='photos'&&method==='POST';
-   if(isVault){parts[0]='photos';parts.length=1;}
+   const isAdminUpload=isVault||(parts[0]==='admin'&&parts.length===2&&parts[1]==='photos'&&method==='POST');
+   if(isAdminUpload){parts[0]='photos';parts.length=1;}
    if(parts[0]==='account'&&parts.length===2)return await accountAction(request,parts[1],jsonBody);
   if(parts[0]==='photos'&&parts.length===1){
    if(method==='GET'){
     const hash=await ownerHash(request),cursor=decodeCursor(url.searchParams.get('cursor')),mine=url.searchParams.get('mine')==='1';
     if(mine&&!hash)return response({photos:[],nextCursor:null,total:0});
-    const where:string[]=[],values:unknown[]=[];if(mine){where.push('owner_hash=?');values.push(hash);}else{where.push('NOT class7_test.photo_in_vault(photos.id)');}if(cursor){where.push('(created_at<? OR (created_at=? AND id<?))');values.push(cursor.date,cursor.date,cursor.id);}
-    const result=await database().batch([database().prepare(`SELECT * FROM photos ${where.length?'WHERE '+where.join(' AND '):''} ORDER BY created_at DESC,id DESC LIMIT 101`).bind(...values),database().prepare(`SELECT count(*) AS n FROM photos ${mine?'WHERE owner_hash=?':'WHERE NOT class7_test.photo_in_vault(photos.id)'}`).bind(...(mine?[hash]:[]))]);
+    const where:string[]=[],values:unknown[]=[];where.push('NOT class7_test.photo_is_classified(photos.id)');if(mine){where.push('owner_hash=?');values.push(hash);}if(cursor){where.push('(created_at<? OR (created_at=? AND id<?))');values.push(cursor.date,cursor.date,cursor.id);}
+    const result=await database().batch([database().prepare(`SELECT * FROM photos ${where.length?'WHERE '+where.join(' AND '):''} ORDER BY created_at DESC,id DESC LIMIT 101`).bind(...values),database().prepare(`SELECT count(*) AS n FROM photos ${mine?'WHERE owner_hash=? AND NOT class7_test.photo_is_classified(photos.id)':'WHERE NOT class7_test.photo_is_classified(photos.id)'}`).bind(...(mine?[hash]:[]))]);
     const found=result[0].results as Photo[],rows=found.slice(0,100),count=result[1].results[0] as {n:number}|undefined;
     return response({photos:rows.map(row=>photoView(row,hash)),nextCursor:found.length>100?encodeCursor(rows[rows.length-1]):null,total:count?.n||0});
    }
    if(method==='POST'){
     const current=await requireAccountProfile(request);
-     if(isVault){
+     if(isAdminUpload){
       const account=await requireAccount(request);
       const admin=await database().prepare('SELECT 1 FROM class7_test.photo_vault_admins WHERE username=?').bind(account.username).first();
-      if(!admin)throw new ApiError(403,'只有保密仓库管理员可以上传照片。');
+      if(!admin)throw new ApiError(403,'只有管理员可以上传稀有卡牌。');
      }const mime=(request.headers.get('Content-Type')||'').split(';')[0].toLowerCase();if(!imageTypes.has(mime)||!request.body)throw new ApiError(415,'请上传 JPG、PNG、WebP、GIF 或 AVIF 图片。');
     let meta;try{const encoded=request.headers.get('X-Photo-Metadata')||'';if(encoded.length>12000)throw Error();meta=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(encoded),c=>c.charCodeAt(0))));}catch{throw new ApiError(400,'照片信息无法读取。');}
+    const uploadRarity=isAdminUpload?(isVault?'classified':meta.rarity):null;if(isAdminUpload&&!['epic','legendary','classified'].includes(uploadRarity))throw new ApiError(400,'请选择史诗、传奇或保密级。');
     let title=shortText(meta.title,100);const caption=shortText(meta.caption,500);const width=Number(meta.width),height=Number(meta.height);if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||width>100000||height>100000)throw new ApiError(400,'照片尺寸无效。');
     const rotation=meta.rotation??0;if(![0,90,180,270].includes(rotation))throw new ApiError(400,'照片旋转角度无效。');
     const id=crypto.randomUUID(),key='photos/'+id,now=new Date().toISOString();
     const stored=await bucket().put(key,request.body,{httpMetadata:{contentType:mime}});if(!stored||!stored.size){if(stored)await bucket().delete(key);throw new ApiError(400,'照片文件为空。');}
-    try{title=await insertPhoto({id,owner_hash:current.device_hash,uploader:current.nickname,title,caption,object_key:key,mime,bytes:stored.size,width,height,rotation,created_at:now});if(isVault)await database().prepare("INSERT INTO class7_test.photo_rarities(photo_id,rarity) VALUES(?,'classified') ON CONFLICT(photo_id) DO UPDATE SET rarity='classified'").bind(id).run();}catch(e){await bucket().delete(key);throw e;}
-    return response({photo:photoView({id,owner_hash:current.device_hash,uploader:current.nickname,title,caption,object_key:key,mime,bytes:stored.size,width,height,rotation,created_at:now},current.device_hash)},201);
+    try{title=await insertPhoto({id,owner_hash:current.device_hash,uploader:current.nickname,title,caption,object_key:key,mime,bytes:stored.size,width,height,rotation,created_at:now},uploadRarity);}catch(e){await bucket().delete(key);throw e;}
+    return response({photo:photoView({id,owner_hash:current.device_hash,uploader:current.nickname,title,caption,object_key:key,mime,bytes:stored.size,width,height,rotation,created_at:now},current.device_hash),vault:uploadRarity==='classified',rarity:uploadRarity||'common'},201);
    }
   }
   if(parts[0]==='photos'&&parts.length===3&&parts[2]==='caption'&&method==='POST'){

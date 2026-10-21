@@ -7,6 +7,7 @@ for(const [count,title,next,earned] of [[0,'尚未获得称号',20,0],[19,'尚�
 }
 for(const bad of [-1,NaN,Infinity,1.5])assert.equal(c.collectionProgress(bad).count,0);
 c.notifyCollectionMilestone(19,20);assert.equal(messages.pop(),'解锁收藏成就：新手收藏者');c.notifyCollectionMilestone(20,20);assert.equal(messages.length,0);c.notifyCollectionMilestone(59,60);assert.equal(messages.pop(),'解锁收藏成就：大份收集家');
+for(const [tier,title] of Object.entries({common:'超越常人的恒心',epic:'史到临头',legendary:'高三七班没有活着的传奇',classified:'黑暗往事'})){let v=c.collectionSetProgress(tier,{owned:0,total:0},[]);assert.equal(v.title,title);assert.equal(v.complete,false);assert.equal(v.unlocked,false);v=c.collectionSetProgress(tier,{owned:3,total:3},[{rarity:tier}]);assert(v.complete&&v.unlocked);v=c.collectionSetProgress(tier,{owned:3,total:4},[{rarity:tier}]);assert(!v.complete&&v.unlocked);}
 const events={},windowEvents={},frames=new Map(),media={matches:true,addEventListener(k,f){this.changed=f;}},documentEvents={};let seq=0,observer;
 const grid={addEventListener(k,f){events[k]=f;},contains(){return true;}};
 const card=()=>{const flags=new Set(),styles=new Map();return {isConnected:true,flags,styles,classList:{add:x=>flags.add(x),remove:x=>flags.delete(x)},style:{setProperty:(k,v)=>styles.set(k,v),removeProperty:k=>styles.delete(k)},getBoundingClientRect:()=>({left:0,top:0,width:200,height:300})};};

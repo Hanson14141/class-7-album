@@ -1024,9 +1024,9 @@ GRANT SELECT ON class7_test.photo_vault_admins TO service_role;
 ALTER TABLE class7_test.photo_rarities DROP CONSTRAINT IF EXISTS photo_rarities_rarity_check;
 ALTER TABLE class7_test.photo_rarities ADD CONSTRAINT photo_rarities_rarity_check CHECK(rarity IN ('common','epic','legendary','classified'));
 
--- Relax price check constraint to include 80
+-- Allow current prices and preserve historical 80-point purchases
 ALTER TABLE class7_test.mall_photo_inventory DROP CONSTRAINT IF EXISTS mall_photo_inventory_price_check;
-ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN (10,20,30,80));
+ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN (10,20,30,40,80));
 
 -- Replace 3-pool draw with 4-pool draw (82 / 10 / 5 / 3)
 DROP FUNCTION IF EXISTS class7_test.draw_photo_pool(text[],text[],text[],integer);
@@ -1082,7 +1082,7 @@ END $$;
 REVOKE ALL ON FUNCTION class7_test.photo_mall_day(text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION class7_test.photo_mall_day(text) TO service_role;
 
--- Update buy_mall_photo with 80 pts classified tier, locking, and single-buyer ownership transfer
+-- Update buy_mall_photo with 40 pts classified tier, locking, and single-buyer ownership transfer
 CREATE OR REPLACE FUNCTION class7_test.buy_mall_photo(p_account text,p_photo text,p_day date,p_request uuid,p_expected_price integer) RETURNS jsonb
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
 DECLARE today date:=(now() AT TIME ZONE 'Asia/Shanghai')::date;
@@ -1107,14 +1107,14 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM class7_test.mall_photo_offers WHERE account_id=p_account AND day=today AND photo_id=p_photo) THEN
   RETURN jsonb_build_object('bought',false,'error','not_offered');
  END IF;
- SELECT * INTO photo FROM class7_test.photos WHERE id=p_photo FOR SHARE;
+ SELECT * INTO photo FROM class7_test.photos WHERE id=p_photo FOR UPDATE;
  IF NOT FOUND THEN RETURN jsonb_build_object('bought',false,'error','missing'); END IF;
  SELECT rarity INTO tier FROM class7_test.photo_rarities WHERE photo_id=p_photo;
- cost:=CASE tier WHEN 'classified' THEN 80 WHEN 'legendary' THEN 30 WHEN 'epic' THEN 20 ELSE 10 END;
+ cost:=CASE tier WHEN 'classified' THEN 40 WHEN 'legendary' THEN 30 WHEN 'epic' THEN 20 ELSE 10 END;
  IF p_expected_price IS DISTINCT FROM cost THEN RETURN jsonb_build_object('bought',false,'error','price_changed','price',cost); END IF;
 
  IF tier = 'classified' THEN
-  PERFORM 1 FROM class7_test.photos WHERE id = p_photo FOR UPDATE;
+  -- The photo row is already locked before checking global availability.
   IF NOT class7_test.photo_in_vault(p_photo) THEN
    RETURN jsonb_build_object('bought',false,'error','already_sold');
   END IF;
@@ -1146,3 +1146,299 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION class7_test.buy_mall_photo(text,text,date,uuid,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION class7_test.buy_mall_photo(text,text,date,uuid,integer) TO service_role;
+
+-- Server-only tag used inside the same transaction as the photo insert.
+CREATE OR REPLACE FUNCTION class7_test.mark_vault_photo(p_photo text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM class7_test.photos WHERE id=p_photo) THEN RAISE EXCEPTION 'Missing vault photo'; END IF;
+ INSERT INTO class7_test.photo_rarities(photo_id,rarity) VALUES(p_photo,'classified') ON CONFLICT(photo_id) DO UPDATE SET rarity='classified';
+END $$;
+REVOKE ALL ON FUNCTION class7_test.mark_vault_photo(text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION class7_test.mark_vault_photo(text) TO service_role;
+
+-- Persistent full-set achievements; only the server can award them.
+CREATE TABLE IF NOT EXISTS class7_test.collection_set_achievements(account_id text NOT NULL REFERENCES class7_test.accounts(id),rarity text NOT NULL CHECK(rarity IN ('common','epic','legendary','classified')),unlocked_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(account_id,rarity));
+REVOKE ALL ON class7_test.collection_set_achievements FROM PUBLIC,anon,authenticated,service_role;
+GRANT SELECT ON class7_test.collection_set_achievements TO service_role;
+CREATE OR REPLACE FUNCTION class7_test.unlock_collection_sets(p_account text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
+DECLARE result jsonb;
+BEGIN
+ WITH owned AS(SELECT photo_id FROM class7_test.mall_photo_inventory WHERE account_id=p_account),roster AS(SELECT id AS photo_id FROM class7_test.photos UNION SELECT photo_id FROM owned),complete AS(SELECT COALESCE(r.rarity,'common') AS rarity FROM roster p LEFT JOIN class7_test.photo_rarities r USING(photo_id) LEFT JOIN owned o USING(photo_id) GROUP BY COALESCE(r.rarity,'common') HAVING count(*)>0 AND count(*)=count(o.photo_id))
+ INSERT INTO class7_test.collection_set_achievements(account_id,rarity) SELECT p_account,rarity FROM complete ON CONFLICT DO NOTHING;
+ SELECT COALESCE(jsonb_agg(jsonb_build_object('rarity',rarity,'unlockedAt',unlocked_at) ORDER BY rarity),'[]'::jsonb) INTO result FROM class7_test.collection_set_achievements WHERE account_id=p_account;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION class7_test.unlock_collection_sets(text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION class7_test.unlock_collection_sets(text) TO service_role;
+
+-- Classified is a public photo rarity; shop availability remains independent.
+CREATE OR REPLACE FUNCTION class7_test.weekly_contest_page(period_name text,page_cursor jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
+DECLARE settings class7_test.contest_settings%ROWTYPE; current_week timestamptz; chosen_week timestamptz;
+ stats_from timestamptz; closed boolean; available boolean; found jsonb; n bigint; page_offset bigint:=0;
+BEGIN
+ IF period_name NOT IN('current','previous') THEN RAISE EXCEPTION 'invalid contest period'; END IF;
+ PERFORM class7_test.contest_tick();
+ SELECT * INTO settings FROM class7_test.contest_settings WHERE singleton;
+ current_week:=class7_test.contest_week_start(current_setting('class7.contest_now')::timestamptz);
+ chosen_week:=current_week-CASE WHEN period_name='previous' THEN interval '7 days' ELSE interval '0 days' END;
+ closed:=period_name='previous';available:=chosen_week>=class7_test.contest_week_start(settings.launched_at);
+ stats_from:=GREATEST(chosen_week,settings.launched_at);
+ IF page_cursor IS NOT NULL AND page_cursor<>'null'::jsonb THEN
+  IF page_cursor->>'week' IS DISTINCT FROM chosen_week::text OR NOT COALESCE((page_cursor->>'rank')~'^[0-9]{1,9}$',false) THEN RETURN jsonb_build_object('stale',true);END IF;
+  page_offset:=(page_cursor->>'rank')::bigint;
+ END IF;
+ IF NOT available THEN found:='[]'::jsonb;n:=0;
+ ELSIF closed THEN
+  SELECT count(*) INTO n FROM class7_test.contest_results r JOIN class7_test.photos p ON p.id=r.photo_id WHERE week_start=chosen_week;
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.rank),'[]'::jsonb) INTO found FROM(
+   SELECT * FROM(SELECT r.photo_id,r.weekly_votes,r.total_votes,row_number() OVER(ORDER BY r.rank) AS rank FROM class7_test.contest_results r JOIN class7_test.photos p ON p.id=r.photo_id WHERE week_start=chosen_week) visible WHERE rank>page_offset ORDER BY rank LIMIT 101
+  ) r;
+ ELSE
+  WITH scores AS (
+   SELECT s.*,row_number() OVER(ORDER BY s.weekly_votes DESC,s.total_votes DESC,p.created_at DESC,p.id DESC) AS rank
+   FROM class7_test.contest_scores(stats_from,chosen_week+interval '7 days') s JOIN class7_test.photos p ON p.id=s.photo_id WHERE s.weekly_votes>0
+  ),page AS (SELECT * FROM scores WHERE rank>page_offset ORDER BY rank LIMIT 101)
+  SELECT (SELECT count(*) FROM scores),COALESCE((SELECT jsonb_agg(to_jsonb(page) ORDER BY rank) FROM page),'[]'::jsonb) INTO n,found;
+ END IF;
+ RETURN jsonb_build_object('week',chosen_week::text,'start',chosen_week,'end',chosen_week+interval '7 days',
+  'statsFrom',stats_from,'launchedAt',settings.launched_at,'closed',closed,'available',available,
+  'hasPrevious',current_week-interval '7 days'>=class7_test.contest_week_start(settings.launched_at),
+  'entries',found,'total',n);
+END $$;
+CREATE OR REPLACE FUNCTION class7_test.comment_contest_page(period_name text,page_cursor jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
+DECLARE settings class7_test.comment_contest_settings%ROWTYPE; this_week timestamptz; chosen_week timestamptz; available boolean; found jsonb; n bigint; page_offset bigint:=0;
+BEGIN
+ IF period_name NOT IN('current','previous','total') THEN RAISE EXCEPTION 'invalid comment contest period'; END IF;
+ PERFORM class7_test.comment_contest_tick();SELECT * INTO settings FROM class7_test.comment_contest_settings WHERE singleton;
+ this_week:=class7_test.contest_week_start(current_setting('class7.comment_contest_now')::timestamptz);
+ chosen_week:=this_week-CASE WHEN period_name='previous' THEN interval '7 days' ELSE interval '0 days' END;
+ available:=period_name='total' OR chosen_week>=class7_test.contest_week_start(settings.launched_at);
+ IF page_cursor IS NOT NULL AND page_cursor<>'null'::jsonb THEN
+  IF page_cursor->>'week' IS DISTINCT FROM chosen_week::text OR page_cursor->>'period' IS DISTINCT FROM period_name OR NOT COALESCE((page_cursor->>'rank')~'^[0-9]{1,9}$',false) THEN RETURN jsonb_build_object('stale',true); END IF;
+  page_offset:=(page_cursor->>'rank')::bigint;
+ END IF;
+ IF NOT available THEN found:='[]'::jsonb;n:=0;
+ ELSIF period_name='previous' THEN
+  SELECT count(*) INTO n FROM class7_test.comment_contest_results r JOIN class7_test.comments c ON c.id=r.comment_id JOIN class7_test.photos p ON p.id=c.photo_id WHERE r.week_start=chosen_week;
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.rank),'[]'::jsonb) INTO found FROM(
+   SELECT * FROM(SELECT r.comment_id,r.weekly_votes,r.total_votes,row_number() OVER(ORDER BY r.rank) AS rank FROM class7_test.comment_contest_results r JOIN class7_test.comments c ON c.id=r.comment_id JOIN class7_test.photos p ON p.id=c.photo_id WHERE r.week_start=chosen_week) visible WHERE rank>page_offset ORDER BY rank LIMIT 51
+  ) r;
+ ELSE
+  WITH scores AS (
+   SELECT s.*,row_number() OVER(ORDER BY CASE WHEN period_name='total' THEN s.total_votes ELSE s.weekly_votes END DESC,CASE WHEN period_name='total' THEN 0 ELSE s.total_votes END DESC,c.created_at DESC,c.id DESC) AS rank
+   FROM class7_test.comment_contest_scores(chosen_week) s JOIN class7_test.comments c ON c.id=s.comment_id JOIN class7_test.photos p ON p.id=c.photo_id
+   WHERE CASE WHEN period_name='total' THEN s.total_votes ELSE s.weekly_votes END>0
+  ),page AS(SELECT * FROM scores WHERE rank>page_offset ORDER BY rank LIMIT 51)
+  SELECT (SELECT count(*) FROM scores),COALESCE((SELECT jsonb_agg(to_jsonb(page) ORDER BY rank) FROM page),'[]'::jsonb) INTO n,found;
+ END IF;
+ RETURN jsonb_build_object('week',chosen_week::text,'start',chosen_week,'end',chosen_week+interval '7 days','period',period_name,'closed',period_name='previous','available',available,
+ 'hasPrevious',this_week-interval '7 days'>=class7_test.contest_week_start(settings.launched_at),'entries',found,'total',n);
+END $$;
+
+-- Narrow server-only helper; ordinary upload metadata cannot select rarity.
+CREATE OR REPLACE FUNCTION class7_test.mark_admin_photo(p_photo text,p_rarity text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
+BEGIN
+ IF p_rarity NOT IN('epic','legendary','classified') OR p_rarity IS NULL THEN RAISE EXCEPTION 'Invalid admin rarity'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM class7_test.photos WHERE id=p_photo) THEN RAISE EXCEPTION 'Missing photo'; END IF;
+ INSERT INTO class7_test.photo_rarities(photo_id,rarity) VALUES(p_photo,p_rarity) ON CONFLICT(photo_id) DO UPDATE SET rarity=excluded.rarity;
+END $$;
+REVOKE ALL ON FUNCTION class7_test.mark_admin_photo(text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION class7_test.mark_admin_photo(text,text) TO service_role;
+
+
+-- Change only the rarity of an existing photo; no file or interaction mutations.
+CREATE OR REPLACE FUNCTION class7_test.set_admin_photo_rarity(p_account text,p_photo text,p_rarity text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
+DECLARE previous text;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM class7_test.accounts a JOIN class7_test.photo_vault_admins v ON v.username=a.username WHERE a.id=p_account) THEN
+  RETURN jsonb_build_object('error','unauthorized');
+ END IF;
+ IF p_rarity IS NULL OR p_rarity NOT IN('common','epic','legendary','classified') THEN RETURN jsonb_build_object('error','invalid'); END IF;
+ PERFORM 1 FROM class7_test.photos WHERE id=p_photo FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('error','missing'); END IF;
+ SELECT rarity INTO previous FROM class7_test.photo_rarities WHERE photo_id=p_photo;
+ INSERT INTO class7_test.photo_rarities(photo_id,rarity) VALUES(p_photo,p_rarity)
+ ON CONFLICT(photo_id) DO UPDATE SET rarity=excluded.rarity;
+ RETURN jsonb_build_object('photoId',p_photo,'rarity',p_rarity,'changed',COALESCE(previous,'common')<>p_rarity);
+END $$;
+REVOKE ALL ON FUNCTION class7_test.set_admin_photo_rarity(text,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION class7_test.set_admin_photo_rarity(text,text,text) TO service_role;
+
+
+-- Classified cards are never part of the public album, including after purchase.
+CREATE OR REPLACE FUNCTION class7_test.photo_is_classified(p_photo text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
+ SELECT EXISTS(SELECT 1 FROM class7_test.photo_rarities WHERE photo_id=p_photo AND rarity='classified')
+$$;
+REVOKE ALL ON FUNCTION class7_test.photo_is_classified(text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION class7_test.photo_is_classified(text) TO service_role;
+
+-- Read-time exclusions preserve archived votes and results.
+CREATE OR REPLACE FUNCTION class7_test.weekly_contest_page(period_name text,page_cursor jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
+DECLARE settings class7_test.contest_settings%ROWTYPE; current_week timestamptz; chosen_week timestamptz;
+ stats_from timestamptz; closed boolean; available boolean; found jsonb; n bigint; page_offset bigint:=0;
+BEGIN
+ IF period_name NOT IN('current','previous') THEN RAISE EXCEPTION 'invalid contest period'; END IF;
+ PERFORM class7_test.contest_tick();
+ SELECT * INTO settings FROM class7_test.contest_settings WHERE singleton;
+ current_week:=class7_test.contest_week_start(current_setting('class7.contest_now')::timestamptz);
+ chosen_week:=current_week-CASE WHEN period_name='previous' THEN interval '7 days' ELSE interval '0 days' END;
+ closed:=period_name='previous';available:=chosen_week>=class7_test.contest_week_start(settings.launched_at);
+ stats_from:=GREATEST(chosen_week,settings.launched_at);
+ IF page_cursor IS NOT NULL AND page_cursor<>'null'::jsonb THEN
+  IF page_cursor->>'week' IS DISTINCT FROM chosen_week::text OR NOT COALESCE((page_cursor->>'rank')~'^[0-9]{1,9}$',false) THEN RETURN jsonb_build_object('stale',true);END IF;
+  page_offset:=(page_cursor->>'rank')::bigint;
+ END IF;
+ IF NOT available THEN found:='[]'::jsonb;n:=0;
+ ELSIF closed THEN
+  SELECT count(*) INTO n FROM class7_test.contest_results r JOIN class7_test.photos p ON p.id=r.photo_id WHERE week_start=chosen_week AND NOT class7_test.photo_is_classified(p.id);
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.rank),'[]'::jsonb) INTO found FROM(
+   SELECT * FROM(SELECT r.photo_id,r.weekly_votes,r.total_votes,row_number() OVER(ORDER BY r.rank) AS rank FROM class7_test.contest_results r JOIN class7_test.photos p ON p.id=r.photo_id WHERE week_start=chosen_week AND NOT class7_test.photo_is_classified(p.id)) visible WHERE rank>page_offset ORDER BY rank LIMIT 101
+  ) r;
+ ELSE
+  WITH scores AS (
+   SELECT s.*,row_number() OVER(ORDER BY s.weekly_votes DESC,s.total_votes DESC,p.created_at DESC,p.id DESC) AS rank
+   FROM class7_test.contest_scores(stats_from,chosen_week+interval '7 days') s JOIN class7_test.photos p ON p.id=s.photo_id WHERE s.weekly_votes>0 AND NOT class7_test.photo_is_classified(p.id)
+  ),page AS (SELECT * FROM scores WHERE rank>page_offset ORDER BY rank LIMIT 101)
+  SELECT (SELECT count(*) FROM scores),COALESCE((SELECT jsonb_agg(to_jsonb(page) ORDER BY rank) FROM page),'[]'::jsonb) INTO n,found;
+ END IF;
+ RETURN jsonb_build_object('week',chosen_week::text,'start',chosen_week,'end',chosen_week+interval '7 days',
+  'statsFrom',stats_from,'launchedAt',settings.launched_at,'closed',closed,'available',available,
+  'hasPrevious',current_week-interval '7 days'>=class7_test.contest_week_start(settings.launched_at),
+  'entries',found,'total',n);
+END $$;
+CREATE OR REPLACE FUNCTION class7_test.comment_contest_page(period_name text,page_cursor jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
+DECLARE settings class7_test.comment_contest_settings%ROWTYPE; this_week timestamptz; chosen_week timestamptz; available boolean; found jsonb; n bigint; page_offset bigint:=0;
+BEGIN
+ IF period_name NOT IN('current','previous','total') THEN RAISE EXCEPTION 'invalid comment contest period'; END IF;
+ PERFORM class7_test.comment_contest_tick();SELECT * INTO settings FROM class7_test.comment_contest_settings WHERE singleton;
+ this_week:=class7_test.contest_week_start(current_setting('class7.comment_contest_now')::timestamptz);
+ chosen_week:=this_week-CASE WHEN period_name='previous' THEN interval '7 days' ELSE interval '0 days' END;
+ available:=period_name='total' OR chosen_week>=class7_test.contest_week_start(settings.launched_at);
+ IF page_cursor IS NOT NULL AND page_cursor<>'null'::jsonb THEN
+  IF page_cursor->>'week' IS DISTINCT FROM chosen_week::text OR page_cursor->>'period' IS DISTINCT FROM period_name OR NOT COALESCE((page_cursor->>'rank')~'^[0-9]{1,9}$',false) THEN RETURN jsonb_build_object('stale',true); END IF;
+  page_offset:=(page_cursor->>'rank')::bigint;
+ END IF;
+ IF NOT available THEN found:='[]'::jsonb;n:=0;
+ ELSIF period_name='previous' THEN
+  SELECT count(*) INTO n FROM class7_test.comment_contest_results r JOIN class7_test.comments c ON c.id=r.comment_id JOIN class7_test.photos p ON p.id=c.photo_id WHERE r.week_start=chosen_week AND NOT class7_test.photo_is_classified(p.id);
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.rank),'[]'::jsonb) INTO found FROM(
+   SELECT * FROM(SELECT r.comment_id,r.weekly_votes,r.total_votes,row_number() OVER(ORDER BY r.rank) AS rank FROM class7_test.comment_contest_results r JOIN class7_test.comments c ON c.id=r.comment_id JOIN class7_test.photos p ON p.id=c.photo_id WHERE r.week_start=chosen_week AND NOT class7_test.photo_is_classified(p.id)) visible WHERE rank>page_offset ORDER BY rank LIMIT 51
+  ) r;
+ ELSE
+  WITH scores AS (
+   SELECT s.*,row_number() OVER(ORDER BY CASE WHEN period_name='total' THEN s.total_votes ELSE s.weekly_votes END DESC,CASE WHEN period_name='total' THEN 0 ELSE s.total_votes END DESC,c.created_at DESC,c.id DESC) AS rank
+   FROM class7_test.comment_contest_scores(chosen_week) s JOIN class7_test.comments c ON c.id=s.comment_id JOIN class7_test.photos p ON p.id=c.photo_id
+   WHERE NOT class7_test.photo_is_classified(p.id) AND CASE WHEN period_name='total' THEN s.total_votes ELSE s.weekly_votes END>0
+  ),page AS(SELECT * FROM scores WHERE rank>page_offset ORDER BY rank LIMIT 51)
+  SELECT (SELECT count(*) FROM scores),COALESCE((SELECT jsonb_agg(to_jsonb(page) ORDER BY rank) FROM page),'[]'::jsonb) INTO n,found;
+ END IF;
+ RETURN jsonb_build_object('week',chosen_week::text,'start',chosen_week,'end',chosen_week+interval '7 days','period',period_name,'closed',period_name='previous','available',available,
+ 'hasPrevious',this_week-interval '7 days'>=class7_test.contest_week_start(settings.launched_at),'entries',found,'total',n);
+END $$;
+
+
+-- Shared permanent pity; only server-side functions may mutate draw state.
+CREATE TABLE IF NOT EXISTS class7_test.photo_draw_state(
+ account_id text PRIMARY KEY REFERENCES class7_test.accounts(id) ON DELETE CASCADE,
+ total_draws integer NOT NULL DEFAULT 0 CHECK(total_draws>=0),
+ legendary_misses integer NOT NULL DEFAULT 0 CHECK(legendary_misses BETWEEN 0 AND 29),
+ classified_misses integer NOT NULL DEFAULT 0 CHECK(classified_misses BETWEEN 0 AND 49),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS class7_test.photo_draw_requests(
+ account_id text NOT NULL REFERENCES class7_test.accounts(id) ON DELETE CASCADE,
+ request_id uuid NOT NULL, draw_count integer NOT NULL CHECK(draw_count IN(1,10)),
+ result jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(account_id,request_id)
+);
+REVOKE ALL ON class7_test.photo_draw_state,class7_test.photo_draw_requests FROM PUBLIC,anon,authenticated,service_role;
+GRANT SELECT ON class7_test.photo_draw_state,class7_test.photo_draw_requests TO service_role;
+ALTER TABLE class7_test.mall_photo_inventory DROP CONSTRAINT IF EXISTS mall_photo_inventory_price_check;
+ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN(9,10,20,30,40,80));
+
+CREATE OR REPLACE FUNCTION class7_test.draw_photos(p_account text,p_count integer,p_request uuid,p_expected_cost integer) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
+DECLARE state class7_test.photo_draw_state%ROWTYPE; old class7_test.photo_draw_requests%ROWTYPE;
+ c text[];e text[];l text[];s text[]; selected text; tier text; photo class7_test.photos%ROWTYPE;
+ cost integer; balance integer; unit_cost integer; n integer; ticket uuid; picked_tier text; guaranteed text;
+ result jsonb; entries jsonb:='[]'::jsonb; details text; buyer_hash text; buyer_name text;
+BEGIN
+ IF p_count IS NULL OR p_count NOT IN(1,10) OR p_request IS NULL OR NOT EXISTS(SELECT 1 FROM class7_test.accounts WHERE id=p_account) THEN
+  RETURN jsonb_build_object('ok',false,'error','invalid');
+ END IF;
+ cost:=CASE WHEN p_count=10 THEN 90 ELSE 10 END;unit_cost:=cost/p_count;
+ IF p_expected_cost IS DISTINCT FROM cost THEN RETURN jsonb_build_object('ok',false,'error','price_changed'); END IF;
+ -- Same account lock as the shop; draw requests serialize shared exclusive stock.
+ PERFORM pg_advisory_xact_lock(hashtextextended('photo-mall|'||p_account,0));
+ SELECT * INTO old FROM class7_test.photo_draw_requests WHERE account_id=p_account AND request_id=p_request;
+ IF FOUND THEN
+  IF old.draw_count<>p_count THEN RETURN jsonb_build_object('ok',false,'error','request_conflict'); END IF;
+  SELECT total INTO balance FROM class7_test.user_points WHERE account_id=p_account;
+  RETURN old.result||jsonb_build_object('duplicate',true,'totalPoints',COALESCE(balance,0));
+ END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('photo-draw-stock',0));
+ -- Any failure below rolls back the entire single/ten draw, including ownership and pity.
+ BEGIN
+  INSERT INTO class7_test.user_points(account_id,total) VALUES(p_account,0) ON CONFLICT DO NOTHING;
+  SELECT total INTO balance FROM class7_test.user_points WHERE account_id=p_account FOR UPDATE;
+  IF balance<cost THEN RAISE EXCEPTION USING ERRCODE='P7001',MESSAGE='insufficient'; END IF;
+  INSERT INTO class7_test.photo_draw_state(account_id) VALUES(p_account) ON CONFLICT DO NOTHING;
+  SELECT * INTO state FROM class7_test.photo_draw_state WHERE account_id=p_account FOR UPDATE;
+  SELECT class7_test.canonical_owner(a.owner_hash),COALESCE(NULLIF(p.nickname,''),a.username) INTO buyer_hash,buyer_name
+   FROM class7_test.accounts a LEFT JOIN class7_test.profiles p ON p.device_hash=class7_test.canonical_owner(a.owner_hash) WHERE a.id=p_account;
+  FOR n IN 1..p_count LOOP
+   guaranteed:=CASE WHEN state.classified_misses>=49 THEN 'classified' WHEN state.legendary_misses>=29 THEN 'legendary' ELSE NULL END;
+   LOOP
+    SELECT array_agg(p.id) FILTER(WHERE COALESCE(r.rarity,'common')='common'),array_agg(p.id) FILTER(WHERE r.rarity='epic'),
+     array_agg(p.id) FILTER(WHERE r.rarity='legendary'),array_agg(p.id) FILTER(WHERE r.rarity='classified') INTO c,e,l,s
+    FROM class7_test.photos p LEFT JOIN class7_test.photo_rarities r ON r.photo_id=p.id
+    WHERE NOT EXISTS(SELECT 1 FROM class7_test.mall_photo_inventory i WHERE i.account_id=p_account AND i.photo_id=p.id)
+     AND (COALESCE(r.rarity,'common')<>'classified' OR class7_test.photo_in_vault(p.id));
+    IF guaranteed='classified' THEN
+     IF COALESCE(cardinality(s),0)=0 THEN RAISE EXCEPTION USING ERRCODE='P7001',MESSAGE='classified_empty'; END IF;
+     selected:=s[1+floor(random()*cardinality(s))::integer];
+    ELSIF guaranteed='legendary' THEN
+     IF COALESCE(cardinality(l),0)+COALESCE(cardinality(s),0)=0 THEN RAISE EXCEPTION USING ERRCODE='P7001',MESSAGE='legendary_empty'; END IF;
+     selected:=(class7_test.draw_photo_pool('{}','{}',l,s,1))[1];
+    ELSE
+     selected:=(class7_test.draw_photo_pool(c,e,l,s,1))[1];
+    END IF;
+    IF selected IS NULL THEN RAISE EXCEPTION USING ERRCODE='P7001',MESSAGE='pool_empty'; END IF;
+    picked_tier:=CASE WHEN selected=ANY(COALESCE(s,'{}')) THEN 'classified' WHEN selected=ANY(COALESCE(l,'{}')) THEN 'legendary' WHEN selected=ANY(COALESCE(e,'{}')) THEN 'epic' ELSE 'common' END;
+    SELECT * INTO photo FROM class7_test.photos WHERE id=selected FOR UPDATE;
+    IF FOUND THEN
+     SELECT COALESCE((SELECT rarity FROM class7_test.photo_rarities WHERE photo_id=selected),'common') INTO tier;
+     -- A shop purchase or admin change may complete while waiting for the photo lock.
+     EXIT WHEN tier=picked_tier AND (tier<>'classified' OR class7_test.photo_in_vault(selected));
+    END IF;
+   END LOOP;
+   ticket:=gen_random_uuid();
+   INSERT INTO class7_test.mall_photo_inventory(id,account_id,photo_id,request_id,title,uploader,caption,price)
+    VALUES(ticket,p_account,selected,gen_random_uuid(),photo.title,CASE WHEN tier='classified' THEN buyer_name ELSE photo.uploader END,photo.caption,unit_cost);
+   IF tier='classified' THEN UPDATE class7_test.photos SET owner_hash=buyer_hash,uploader=buyer_name WHERE id=selected; END IF;
+   state.total_draws:=state.total_draws+1;
+   state.legendary_misses:=CASE WHEN tier IN('legendary','classified') THEN 0 ELSE state.legendary_misses+1 END;
+   state.classified_misses:=CASE WHEN tier='classified' THEN 0 ELSE state.classified_misses+1 END;
+   entries:=entries||jsonb_build_array(jsonb_build_object('photoId',selected,'inventoryId',ticket,'rarity',tier,'guaranteed',guaranteed,'drawNumber',state.total_draws));
+  END LOOP;
+  UPDATE class7_test.user_points SET total=total-cost,updated_at=now() WHERE account_id=p_account;
+  INSERT INTO class7_test.points_ledger(account_id,points,reason,ref_id) VALUES(p_account,-cost,'photo_draw',p_request::text);
+  UPDATE class7_test.photo_draw_state SET total_draws=state.total_draws,legendary_misses=state.legendary_misses,classified_misses=state.classified_misses,updated_at=now() WHERE account_id=p_account;
+  result:=jsonb_build_object('ok',true,'entries',entries,'cost',cost,'count',p_count,'totalPoints',balance-cost,
+   'totalDraws',state.total_draws,'legendaryMisses',state.legendary_misses,'classifiedMisses',state.classified_misses);
+  INSERT INTO class7_test.photo_draw_requests(account_id,request_id,draw_count,result) VALUES(p_account,p_request,p_count,result);
+  RETURN result;
+ EXCEPTION WHEN SQLSTATE 'P7001' THEN
+  GET STACKED DIAGNOSTICS details=MESSAGE_TEXT;
+  RETURN jsonb_build_object('ok',false,'error',details,'cost',cost);
+ END;
+END $$;
+REVOKE ALL ON FUNCTION class7_test.draw_photos(text,integer,uuid,integer) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION class7_test.draw_photos(text,integer,uuid,integer) TO service_role;

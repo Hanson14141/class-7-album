@@ -66,12 +66,12 @@ async function api(path,options={}){const headers=new Headers(options.headers);t
 const isMine=photo=>photo.owned||photo.local;
 let pointsRequest=0;
 async function refreshAccountPoints(){
-  const panel=$('#account-points'),version=++pointsRequest;
+  const panel=$('#account-points'),version=++pointsRequest,generation=ownershipGeneration;
   if(!app.account?.signedIn){panel.hidden=true;return;}
   panel.hidden=false;
   try{
     const data=await api('/points');
-    if(version!==pointsRequest||!app.account?.signedIn)return;
+    if(version!==pointsRequest||generation!==ownershipGeneration||!app.account?.signedIn)return;
     const total=Math.max(0,Number(data.totalPoints)||0),streak=Number(data.streak)||0;
     $('#account-points-value').textContent=total;
     $('#account-points-meta').textContent=(data.checkedIn?'今日已签到':'今日还未签到')+(streak?' · 已连续 '+streak+' 天':'');
@@ -305,7 +305,7 @@ async function rotateCurrentPhoto(turn){
   finally{app.rotationBusy=false;updateRotationControls();}
 }
 
-function openUpload(){if(app.bulkBusy)return;withProfile(()=>{$('#upload-error').hidden=true;updateProfile();showDialog('upload-dialog');});}
+function openUpload(tier){if(app.busy||app.bulkBusy)return;withProfile(()=>{configureAdminUpload(typeof tier==='string'&&vaultStatusState.admin?tier:null);$('#upload-error').hidden=true;updateProfile();showDialog('upload-dialog');});}
 
 function releaseSelected(){for(const entry of app.files)URL.revokeObjectURL(entry.preview);app.files=[];renderSelection();}
 function photoCaption(entry,shared){return entry.caption?.trim()||shared;}
@@ -391,9 +391,9 @@ async function uploadPhotos(event){
   try{
     const result=await uploadWithLimit(queue,async entry=>{const dimensions=await uploadDimensions(entry);return shareFile(entry.file,{title,caption:photoCaption(entry,caption),rotation:photoRotation(entry),...dimensions});},(finished,total)=>{$('#upload-progress').value=finished/total*100;$('#selection-summary').textContent='已处理 '+finished+' / '+total+' 张';});
     const uploaded=new Set(result.successes.map(item=>item.entry));
-    for(const item of result.successes){app.cloud.unshift(item.value);URL.revokeObjectURL(item.entry.preview);}
+    for(const item of result.successes){if(!item.value.vault)app.cloud.unshift(item.value);URL.revokeObjectURL(item.entry.preview);}
     app.files=app.files.filter(entry=>!uploaded.has(entry));
-    if(result.successes.length){app.view='mine';app.filter='';updateTabs();await refreshPhotos();}
+    if(result.successes.length){if(adminUploadTier!=='classified'){app.view='mine';app.filter='';updateTabs();}await refreshPhotos();}
     if(result.failures.length){const first=result.failures[0];error.textContent='已上传 '+result.successes.length+' 张，'+result.failures.length+' 张未完成。再次点击上传只会重试保留的照片。'+first.entry.file.name+'：'+(first.error.message||'上传失败，请重试。');error.hidden=false;}
     else{$('#photo-title').value='';$('#photo-caption').value='';closeDialog('upload-dialog');toast(result.successes.length+' 张照片已加入共享相册');}
   }catch(e){error.textContent=e.message||'上传暂时中断，请重试。';error.hidden=false;}
@@ -462,7 +462,7 @@ reducedMotion.addEventListener('change',event=>{if(event.matches)app.playing=fal
 
 $('#refresh-gallery').addEventListener('click',async()=>{$('#refresh-gallery').disabled=true;try{await loadCloud();toast('相册已更新');}catch(e){toast(e.message);}finally{$('#refresh-gallery').disabled=false;}});
 $('#profile-button').addEventListener('click',()=>openLogin());
-document.addEventListener('class7:points',event=>{if(app.account?.signedIn&&!$('#account-points').hidden)$('#account-points-value').textContent=Math.max(0,Number(event.detail?.total)||0);});
+document.addEventListener('class7:points',event=>{pointsRequest++;if(app.account?.signedIn&&!$('#account-points').hidden)$('#account-points-value').textContent=Math.max(0,Number(event.detail?.total)||0);});
 $('#change-upload-name').addEventListener('click',()=>openLogin());
 $('#login-form').addEventListener('submit',async event=>{event.preventDefault();if(!app.account?.signedIn)return;const nickname=$('#nickname-input').value.trim();if(!nickname)return;$('#save-nickname').disabled=true;try{await api('/profile',{method:'POST',json:{nickname}});safeWrite('class7-nickname',nickname);await refreshIdentity();toast('昵称已保存');}catch(e){$('#login-error').textContent=e.message;$('#login-error').hidden=false;}finally{$('#save-nickname').disabled=false;}});
 $('#account-mode-login').addEventListener('click',()=>setAccountMode('login'));$('#account-mode-register').addEventListener('click',()=>setAccountMode('register'));

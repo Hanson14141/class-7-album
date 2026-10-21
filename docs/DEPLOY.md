@@ -104,3 +104,40 @@ npx tcb fn deploy class7-photo-api --httpFn --force --install-dependency true --
 ### 2026-10-20 掉率和分级定价
 
 再次应用photo-rarity增量，更新普通85/史诗10/传奇5概率及10/20/30积分定价；库存价格约束允许10、20、30，旧记录不变。新API调用五参数buy_mall_photo并验证客户端确认价格；四参数旧接口只提示刷新。最后构建并同步发布静态与HTTP函数。迁移前后仍校验既有照片、账号、票数、积分和库存。
+
+
+### 2026-10-21 保密仓库、持久集齐成就与管理员卡牌上传
+
+现有环境依次执行 apply-photo-vault.cjs、apply-collection-sets.cjs、apply-photo-vault-visibility.cjs、apply-admin-card-upload.cjs，再构建、部署静态与HTTP函数。不能重跑完整schema初始化；若旧迁移覆盖相关函数，重新应用本节增量。管理员白名单从忽略目录JSON维护，仅环境所有者明确授权后运行set-vault-admins.cjs；不要把实际名单打包。
+
+管理员顶栏“卡牌上传”在现有上传窗口选择史诗/传奇/保密，沿用多选、说明与旋转。POST /admin/photos由后台校验，普通上传不能自选等级。未售保密照片仅管理员和当日获提供的账号可读取；保留原图/原始下载与榜单鉴权。旧已购卡只改等级时不转移历史所有权、不删除收藏。四类集齐成就非空池集齐才解锁，服务端持久保存，新增照片不会收回。
+
+
+### 保密卡公开修订（2026-10-21较新）
+
+保密级只表示稀有度，照片上传后即公开上墙；3%初始抽取权重、80积分和既有独占购买逻辑保留。最后执行node scripts/apply-classified-public.cjs，再构建并部署；本次仅重定义榜单读取函数，校验既有记录不变。不要恢复上一节的未售隐藏逻辑。新schema已同步。
+
+
+### 已有照片分级（2026-10-21）
+
+已有环境运行node scripts/apply-admin-photo-rarity.cjs，保留原白名单；新schema已包含。仅新增服务端鉴权函数，不写真实稀有度数据。构建并同步发布前后端后，管理员可在照片大图说明区域“设置卡牌等级”，选择四档等级直接修改。原ID/文件/点赞/评论/收藏/旧成交价保留，保密级依旧公开。
+
+
+### 统一照片管理（2026-10-21）
+
+本轮无新SQL迁移，依赖上版set_admin_photo_rarity；未安装者先运行apply-admin-photo-rarity.cjs。构建并同步发布静态与HTTP后，管理员顶栏为“照片管理”，支持12张分页、名称/上传者查询、四类过滤、单图改等级以及上传返回。上传仍复用原入口，不迁移照片或改现有归属。
+
+
+### 最终规则：保密卡仅商城刷新与签名限流修复（2026-10-21）
+
+覆盖此前公开规则：保密级包含已购均不公开上墙/计数/榜单，管理员、当日抽到未售卡的账号、实际收藏者按权限查看；购买后也不公开，不能作公开评论表情。现有环境最后运行node scripts/apply-classified-private.cjs，校验旧数据指纹不变；不要再以旧classified-public覆盖。新schema已同步。签名改为按需读取、3并发/同对象合并/有界重试；列表只用缓存或受控文件路径，不同时签名100张。不移动或压缩原图。部署静态与HTTP后运行verify-classified-private-live和verify-collection-live，运行verify-storage-signing做假网关测试。旧公开临时链接仍受原有效期限制。
+
+
+### 2026-10-21 保密卡40积分
+
+在已有环境运行node scripts/apply-classified-price.cjs，仅替换购买函数和库存价格约束；保留80积分历史成交记录。构建并同步部署静态和HTTP函数，再运行verify-collection-live核对40积分配置及资源哈希。今日未买卡用新价，旧页面提交80要求刷新。保密隐藏规则与抽取权重不变，不重跑完整schema或旧vault迁移。
+
+
+### 2026-10-21 抽卡与双保底
+
+在已有环境最后运行node scripts/apply-photo-draw.cjs，再构建并部署静态与HTTP函数；不重跑完整schema。此迁移保留原账号/照片/积分/库存，并新增仅服务端可写的保底与幂等请求表。十连库存记账允许9积分，不恢复旧价格约束。单抽10/十连90，30抽传奇及以上/50抽保密，单抽十连共用跨天计数；提前抽到重置对应计数，空池整次回滚。隔离验证verify-photo-draw-db、只读线上verify-photo-draw-live及verify-collection-live；不要代真实用户抽卡或花费积分。

@@ -5,6 +5,7 @@ for(const name of ['app.js','editorial.css','favicon.svg'])fs.copyFileSync(path.
 fs.copyFileSync(path.join(root,'src/photo-compression.js'),path.join(root,'public/photo-compression.js'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/upload-compression.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/usage-notice.css'),'utf8'));
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/camera-intro.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/wall-speed.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/account-linking.css'),'utf8'));
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/desktop-wordmark.css'),'utf8'));
@@ -24,7 +25,7 @@ browserApp=browserApp.replace("const result=await fetch('/api'+path,{...options,
 browserApp=browserApp.replace('let data;try{data=await result.json();}',"let data;if(result.status===406)throw new Error('上传请求被服务器拒绝（HTTP 406），原因尚未确认。可开启自动压缩大照片后重试。');try{data=await result.json();}");
 const uploadHook='const dimensions=await uploadDimensions(entry);return shareFile(entry.file,{title,caption:photoCaption(entry,caption),rotation:photoRotation(entry),...dimensions});';
 if(!browserApp.includes(uploadHook))throw Error('Upload hook changed; review compression integration');
-browserApp=browserApp.replace(uploadHook,'const dimensions=await uploadDimensions(entry),prepared=await prepareUploadFile(entry,dimensions);return shareFile(prepared.file,{title,caption:photoCaption(entry,caption),rotation:photoRotation(entry),width:prepared.width,height:prepared.height});');
+browserApp=browserApp.replace(uploadHook,'const dimensions=await uploadDimensions(entry),prepared=await prepareUploadFile(entry,dimensions);return shareFile(prepared.file,{title,caption:photoCaption(entry,caption),rotation:photoRotation(entry),width:prepared.width,height:prepared.height,rarity:adminUploadTier});');
 browserApp=browserApp.replace('edit.append(img);edit.addEventListener','renderCompressionNote(entry,thumb);edit.append(img);edit.addEventListener');
 // Keep the size note below the image button, without text over the photo.
 browserApp=browserApp.replace('thumb.append(edit,remove);item.append(thumb);','thumb.prepend(edit,remove);item.append(thumb);');
@@ -65,7 +66,7 @@ browserApp=browserApp.replace('if(generation!==ownershipGeneration)return;if(min
 browserApp=browserApp.replace('ownershipGeneration++;\n  app.minePhotos=[]','ownershipGeneration++;resetPhotoCounts();\n  app.minePhotos=[]');
 browserApp=browserApp.replace('const mine=app.photos.filter(isMine).length;','const mine=photoTotalForView(true);');
 browserApp=browserApp.replace("$('#photo-count').textContent=photos.length;",'renderPhotoCount();');
-browserApp=browserApp.replace("async function shareFile(file,meta){return (await api('/photos',{method:'POST',headers:{'Content-Type':file.type,'X-Photo-Metadata':metadataHeader(meta)},body:file})).photo;}","async function shareFile(file,meta){const photo=(await api('/photos',{method:'POST',headers:{'Content-Type':file.type,'X-Photo-Metadata':metadataHeader(meta)},body:file})).photo;adjustPhotoCounts(photo,1);return photo;}");
+browserApp=browserApp.replace("async function shareFile(file,meta){return (await api('/photos',{method:'POST',headers:{'Content-Type':file.type,'X-Photo-Metadata':metadataHeader(meta)},body:file})).photo;}","async function shareFile(file,meta){const data=await api(meta.rarity?'/admin/photos':'/photos',{method:'POST',headers:{'Content-Type':file.type,'X-Photo-Metadata':metadataHeader(meta)},body:file}),photo={...data.photo,vault:data.vault===true};if(!photo.vault)adjustPhotoCounts(photo,1);return photo;}");
 browserApp=browserApp.replace("await api('/photos/'+photo.id,{method:'DELETE'});app.cloud=", "await api('/photos/'+photo.id,{method:'DELETE'});adjustPhotoCounts(photo,-1);app.cloud=");
 browserApp=browserApp.replace('app.cloud=app.cloud.filter(photo=>!deleted.has(photo.id));', 'for(const photo of photos)if(deleted.has(photo.id))adjustPhotoCounts(photo,-1);app.cloud=app.cloud.filter(photo=>!deleted.has(photo.id));');
 browserApp=browserApp.replace('\ninit();','\n'+fs.readFileSync(path.join(root,'src/photo-counts-ui.js'),'utf8')+'\ninit();');
@@ -81,11 +82,13 @@ browserApp=browserApp.replace("result.status===401&&app.account?.signedIn", "res
 browserApp=browserApp.replace('\ninit();','\n'+fs.readFileSync(path.join(root,'src/account-recovery-ui.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/wall-speed-ui.js'),'utf8')+'\ninit();');
 browserApp=browserApp.replace('function updateProfile(){','function updateProfile(){\n  renderLinkedAccounts();');
 browserApp=browserApp.replace('\ninit();','\n'+fs.readFileSync(path.join(root,'src/account-linking-ui.js'),'utf8')+'\ninit();');
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/admin-upload-ui.js'),'utf8')+'\ninit();');
 // Remember the first automatic display across visits; the footer can always reopen it.
-browserApp=browserApp.replace('\ninit();',"\nif(safeRead('class7-usage-notice-seen')!=='1'){showDialog('info-dialog');safeWrite('class7-usage-notice-seen','1');}\ninit();");
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/camera-iris-renderer.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/camera-intro-ui.js'),'utf8')+'\ninit();');
 browserApp=browserApp.replaceAll('下载原图','下载照片').replaceAll('原图读取失败','照片读取失败').replaceAll('正在保存原图','正在保存照片').replaceAll('打开原图','打开照片').replaceAll('准备原图','准备照片');
-browserApp=browserApp.replace("toast(result.successes.length+' 张照片已加入共享相册');","const compressedCount=result.successes.filter(item=>item.entry.preparedUpload?.compressed).length;toast(result.successes.length+' 张照片已加入共享相册'+(compressedCount?'，其中 '+compressedCount+' 张已压缩':''));");
+browserApp=browserApp.replace("toast(result.successes.length+' 张照片已加入共享相册');","const compressedCount=result.successes.filter(item=>item.entry.preparedUpload?.compressed).length;toast(result.successes.length+(adminUploadTier==='classified'?' 张保密卡已上传，仅在商城刷新':' 张照片已加入共享相册')+(compressedCount?'，其中 '+compressedCount+' 张已压缩':''));if(adminUploadTier==='classified')openPhotoManager();");
 browserApp=browserApp.replace("history.replaceState({},'','/');","history.replaceState({},'','/api/');");
+browserApp=browserApp.replace("$('#upload-progress').hidden=true;renderSelection();}","$('#upload-progress').hidden=true;renderSelection();updateAdminUploadUI();}");
 // Native PG storage CORS rejects this default HTTP domain on the trial plan.
 // Keep same-origin streaming upload; do not require a paid safety-domain change.
 browserApp=browserApp.replace("fetch(state.photo.src,{credentials:","cloudFetch(state.photo.shared?'/api/files/'+encodeURIComponent(state.photo.id)+'?raw=1':state.photo.src,{credentials:");
@@ -139,7 +142,11 @@ browserApp=browserApp.replaceAll('resetCommentReply();app.commentPhoto=photo.id;
 browserApp=browserApp.replace('resetCommentReply();commentFocus=null;await loadComments();', 'resetCommentEmoji();resetCommentReply();commentFocus=null;await loadComments();');
 browserApp=browserApp.replace('function updateProfile(){','function updateProfile(){\n resetCommentEmojiIdentity();');
 browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/comment-emoji-ui.js'),'utf8')+'\ninit();');
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/admin-rarity-ui.js'),'utf8')+'\ninit();');
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/photo-manager-ui.js'),'utf8')+'\ninit();');
 browserApp=browserApp.replace('return data;}', 'if(data.points&&requestGeneration===ownershipGeneration)document.dispatchEvent(new CustomEvent("class7:points",{detail:data.points}));return data;}');
+browserApp=browserApp.replace('return !app.mallOpen&&!app.commentBoardOpen&&app.playing','return !app.drawOpen&&!app.mallOpen&&!app.commentBoardOpen&&app.playing');
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/draw-ui.js'),'utf8')+'\ninit();');
 fs.writeFileSync(path.join(root,'public/app.js'),browserApp);
 fs.cpSync(path.join(old,'public/fonts'),path.join(root,'public/fonts'),{recursive:true});
 let html=fs.readFileSync(path.join(old,'public/album.html'),'utf8');
@@ -148,12 +155,25 @@ html=html.replace('<div class="wall-shell"', '<p id="ranking-note" class="rankin
 html=html.replace('</nav>','<button type="button" class="contest-nav" id="weekly-contest-nav">每周大赛</button></nav>');
 html=html.replace('</nav>','<button type="button" class="contest-nav comment-contest-nav" id="comment-contest-nav">这期神了</button></nav>');
 html=html.replace('</nav>','<button type="button" class="contest-nav mall-nav" id="mall-nav">商城</button></nav>');
+html=html.replace('</nav>','<button type="button" class="contest-nav" id="draw-nav">抽卡</button></nav>');
+html=html.replace('<section class="gallery-section"',()=>fs.readFileSync(path.join(root,'src/draw.html'),'utf8')+'<section class="gallery-section"');
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/draw.css'),'utf8'));
+html=html.replace('<dialog class="lightbox"',()=>fs.readFileSync(path.join(root,'src/photo-manager.html'),'utf8')+'<dialog class="lightbox"');
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/photo-manager.css'),'utf8'));
+html=html.replace('<form id="caption-edit-form"',()=>fs.readFileSync(path.join(root,'src/admin-rarity.html'),'utf8')+'<form id="caption-edit-form"');
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/admin-rarity.css'),'utf8'));
 html=html.replace('<section class="gallery-section"',fs.readFileSync(path.join(root,'src/mall.html'),'utf8').replace('<p id="mall-status"',()=>fs.readFileSync(path.join(root,'src/mall-collection.html'),'utf8')+'<p id="mall-status"')+'<section class="gallery-section"');
 html=html.replace('<section class="gallery-section"',fs.readFileSync(path.join(root,'src/comment-contest.html'),'utf8')+'<section class="gallery-section"');
 html=html.replace('<option value="likes">点赞排行</option>','<option value="likes">点赞排行</option><option value="weekly">每周大赛</option>');
 html=html.replace('<div class="gallery-toolbar">',fs.readFileSync(path.join(root,'src/weekly-contest.html'),'utf8')+'<div class="gallery-toolbar">');
 const oldInfoDialog=/<dialog class="info-dialog" id="info-dialog"[\s\S]*?<\/dialog>/;
 if(!oldInfoDialog.test(html))throw Error('Usage dialog hook changed; review integration');
+const cameraConfig=JSON.parse(fs.readFileSync(path.join(root,'src/camera-intro-config.json'),'utf8'));
+if(!Number.isFinite(cameraConfig.durationMs)||cameraConfig.durationMs<500||cameraConfig.durationMs>10000||typeof cameraConfig.skipSession!=='boolean'||!/^[a-z0-9-]+$/.test(cameraConfig.sessionKey))throw Error('Invalid camera intro configuration');
+html=html.replace('</head>',()=>'<script>window.class7CameraConfig='+JSON.stringify(cameraConfig)+';\n'+fs.readFileSync(path.join(root,'src/camera-intro-boot.js'),'utf8')+'</script></head>');
+if(!html.includes('<header class="site-header">')||!html.includes('</footer>'))throw Error('Camera page wrapper hook changed');
+html=html.replace('<header class="site-header">','<div id="camera-page"><header class="site-header">').replace('</footer>','</footer></div>');
+html=html.replace('<body>',()=>'<body>\n'+fs.readFileSync(path.join(root,'src/camera-intro.html'),'utf8'));
 html=html.replace(oldInfoDialog,fs.readFileSync(path.join(root,'src/usage-notice.html'),'utf8'));
 html=html.replace('id="footer-preview">关于相册','id="footer-preview">使用须知');
 const photoDetailsStart=html.indexOf('<aside class="photo-details"'),photoDetailsEnd=html.indexOf('</aside>',photoDetailsStart);
@@ -193,15 +213,16 @@ api=api.replace('return response({photos:rows.map(row=>photoView(row,hash))','aw
 api=api.replace("  if(parts[0]==='photos'&&parts.length===1){","  if(parts[0]==='photos'&&parts.length===3&&parts[2]==='likes')return await photoLikeAction(request,parts[1],method);\n  if(parts[0]==='photos'&&parts.length===1){");
 api+='\n'+fs.readFileSync(path.join(root,'src/photo-likes-api.ts'),'utf8');
 api=api.replace('return response({photos:[],nextCursor:null,total:0});','return response({photos:[],nextCursor:null,total:0,ownedTotal:0,uploaders:[]});');
-api=api.replace('function photoView(','async function photoView(').replace('src:`/api/files/${row.id}`','src:await bucket().signedUrl(row.object_key)');
+api=api.replace('function photoView(','async function photoView(').replace('src:`/api/files/${row.id}`',"src:bucket().cachedUrl?.(row.object_key)||('/api/files/'+row.id)");
 api=api.replace('photos:rows.map(row=>photoView(row,hash))','photos:await Promise.all(rows.map(row=>photoView(row,hash)))').replaceAll('photo:photoView(','photo:await photoView(');
 const fileRouteStart=api.indexOf("  if(parts[0]==='files'&&parts.length===2&&method==='GET'){");
 const fileRouteEnd=api.indexOf("  if(parts[0]==='photos'&&parts.length===3&&parts[2]==='comments'){",fileRouteStart);
 if(fileRouteStart<0||fileRouteEnd<0)throw Error('Original file route changed; review adapter');
 api=api.slice(0,fileRouteStart)+`  if(parts[0]==='files'&&parts.length===2&&method==='GET'){
+   await assertVaultAccess(request,parts[1]);
    const row=await database().prepare('SELECT object_key,mime,title FROM photos WHERE id=?').bind(parts[1]).first<{object_key:string;mime:string;title:string}>();if(!row)throw new ApiError(404,'照片不存在。');
    if(url.searchParams.get('raw')==='1'){const file=await bucket().get(row.object_key);if(!file)throw new ApiError(404,'照片文件不存在。');return new Response(file.body,{headers:{'Content-Type':row.mime,'Content-Length':String(file.size),'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});}
-   const target=new URL(await bucket().signedUrl(row.object_key));if(url.searchParams.get('download')==='1'){const encoded=attachmentName(row.title,row.mime).split("filename*=UTF-8''")[1];target.searchParams.set('download',decodeURIComponent(encoded));}
+   const target=new URL(await bucket().signedUrl(row.object_key));if(url.searchParams.has('download')){const encoded=attachmentName(row.title,row.mime).split("filename*=UTF-8''")[1];target.searchParams.set('download',decodeURIComponent(encoded));}
    return new Response(null,{status:302,headers:{Location:target.href,'Cache-Control':'no-store'}});
   }
 `+api.slice(fileRouteEnd);
@@ -239,7 +260,11 @@ api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts.length===2&&parts[1]==='redeem'&&method==='POST')return await mallRedeemRoute(request,await jsonBody(request));");
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts.length===2&&parts[1]==='redemptions'&&method==='GET')return await mallRedemptionsRoute(request);");
 api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='mall'&&parts.length===2&&parts[1]==='inventory'&&method==='GET')return await mallInventoryRoute(request);");
-api+='\n'+fs.readFileSync(path.join(root,'src/mall-api.ts'),'utf8');
+api+='\n'+fs.readFileSync(path.join(root,'src/mall-api.ts'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/photo-vault-api.ts'),'utf8');
+api+='\n'+fs.readFileSync(path.join(root,'src/admin-rarity-api.ts'),'utf8');
+api+='\n'+fs.readFileSync(path.join(root,'src/photo-manager-api.ts'),'utf8');
+api=api.replace(interactionHook,interactionHook+"\n  if(parts[0]==='draw'&&parts.length===1){if(method==='GET')return await drawStateRoute(request);if(method==='POST')return await drawCardsRoute(request);}");
+api+='\n'+fs.readFileSync(path.join(root,'src/draw-api.ts'),'utf8');
 if(!api.includes('mallRedeemRoute')||!browserApp.includes('openMall'))throw Error('Mall hooks changed');
 fs.writeFileSync(path.join(root,'src/photo-api.ts'),api);
 let accounts=fs.readFileSync(path.join(old,'lib/accounts.ts'),'utf8').replace("from 'cloudflare:workers'","from './platform'");
