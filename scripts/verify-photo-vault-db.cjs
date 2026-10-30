@@ -3,11 +3,11 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const root=path.resolve(__dirname,'..'),qa='class7_vault_qa_'+crypto.randomBytes(5).toString('hex');process.chdir(root);
 const q=x=>"'"+String(x).replaceAll("'","''")+"'",rid=()=>crypto.randomUUID();
 (async()=>{
- const c=await require('../../cloudbase-tools/node_modules/@cloudbase/toolbox').getCredentialWithoutCheck({cwd:root}),C=require('../../cloudbase-tools/node_modules/@cloudbase/manager-node'),m=new(C.default||C)({envId:'class7-memory-d0gcpjaqu47530c54',region:'ap-shanghai',secretId:c.secretId,secretKey:c.secretKey,token:c.token});
+ const c=await require('@cloudbase/toolbox').getCredentialWithoutCheck({cwd:root}),C=require('@cloudbase/manager-node'),m=new(C.default||C)({envId:'class7-memory-d0gcpjaqu47530c54',region:'ap-shanghai',secretId:c.secretId,secretKey:c.secretKey,token:c.token});
  async function sql(text){for(let attempt=0;;attempt++){try{const r=await m.database.executePGSql({Sql:text});return(r.Rows||[]).map(row=>JSON.parse(row));}catch(error){if(attempt>=3||!String(error.message).includes('before secure TLS connection was established')){console.error('SQL phase:',text.slice(0,110));throw error;}await new Promise(resolve=>setTimeout(resolve,800*(attempt+1)));}}}
  async function value(text){const row=(await sql(text))[0];let v=Array.isArray(row)?row[0]:Object.values(row||{})[0];if(typeof v==='string'&&(/^[{[]/.test(v)||v==='true'||v==='false'))v=JSON.parse(v);return v;}
 
- const vm=require('node:vm'),esbuild=require(require.resolve('esbuild',{paths:[root,path.join(root,'../cloudbase-tools')]})),rewrite=s=>s.replaceAll('class7_test',qa),pid=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
+ const vm=require('node:vm'),esbuild=require('esbuild'),rewrite=s=>s.replaceAll('class7_test',qa),pid=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
  try{
   console.log('Creating isolated vault schema');await sql(rewrite(fs.readFileSync('schema.sql','utf8')));console.log('Schema ready');
   await sql('INSERT INTO '+qa+".accounts(id,username,owner_hash,password_hash,created_at) VALUES('a','qa_a','a','synthetic','2026-01-01'),('b','qa_b','b','synthetic','2026-01-01'),('c','qa_c','c','synthetic','2026-01-01');");
@@ -23,15 +23,15 @@ const q=x=>"'"+String(x).replaceAll("'","''")+"'",rid=()=>crypto.randomUUID();
 
   // 2. Sampling 10,000 draws
   const dist4=await value("WITH draws AS MATERIALIZED(SELECT ("+qa+".draw_photo_pool(ARRAY['c'],ARRAY['e'],ARRAY['l'],ARRAY['s'],1))[1] AS tier FROM generate_series(1,10000)) SELECT jsonb_object_agg(tier,n) FROM(SELECT tier,count(*) n FROM draws GROUP BY tier) t");
-  assert(Math.abs(dist4.c/10000-.82)<.025,'c ~ 82%');
-  assert(Math.abs(dist4.e/10000-.10)<.02,'e ~ 10%');
-  assert(Math.abs(dist4.l/10000-.05)<.015,'l ~ 5%');
-  assert(Math.abs(dist4.s/10000-.03)<.015,'s ~ 3%');
+  assert(Math.abs(dist4.c/10000-.9595)<.025,'c ~ 95.95%');
+  assert(Math.abs(dist4.e/10000-.03)<.02,'e ~ 3%');
+  assert(Math.abs(dist4.l/10000-.01)<.015,'l ~ 1%');
+  assert(Math.abs(dist4.s/10000-.0005)<.0015,'s ~ 0.05%');
 
   const dist3=await value("WITH draws AS MATERIALIZED(SELECT ("+qa+".draw_photo_pool(ARRAY['c'],ARRAY['e'],ARRAY['l'],'{}',1))[1] AS tier FROM generate_series(1,10000)) SELECT jsonb_object_agg(tier,n) FROM(SELECT tier,count(*) n FROM draws GROUP BY tier) t");
-  assert(Math.abs(dist3.c/10000-(82/97))<.025,'normalized c when s empty');
-  assert(Math.abs(dist3.e/10000-(10/97))<.02,'normalized e when s empty');
-  assert(Math.abs(dist3.l/10000-(5/97))<.015,'normalized l when s empty');
+  assert(Math.abs(dist3.c/10000-(1919/1999))<.025,'normalized c when s empty');
+  assert(Math.abs(dist3.e/10000-(60/1999))<.02,'normalized e when s empty');
+  assert(Math.abs(dist3.l/10000-(20/1999))<.015,'normalized l when s empty');
 
   // Compile real platform & mall-api
   const platform=esbuild.transformSync(rewrite(fs.readFileSync('src/platform.ts','utf8').split('const storageOrigin=')[0]),{loader:'ts',format:'cjs'}).code;

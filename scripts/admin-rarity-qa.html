@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><title>已有照片卡牌设置验证</title><style>body{margin:12px;font:13px Arial;background:#eee}button{padding:8px 12px}iframe{display:block;width:1100px;max-width:100%;height:760px;margin:12px auto;border:1px solid #aaa}</style><button id="open">打开原照片</button><button id="phone">手机390px</button><div id="result">仅本机合成照片</div><iframe id="site" title="已有照片设置预览"></iframe><script>
+sessionStorage.setItem('class7-camera-entered','1');localStorage.setItem('class7-usage-notice-seen','1');const frame=document.querySelector('#site'),status=document.querySelector('#result');let d;
+const wait=async fn=>{for(let i=0;i<160;i++){if(fn())return;await new Promise(r=>setTimeout(r,50));}throw Error('预览超时')};
+frame.onload=async()=>{d=frame.contentDocument;await wait(()=>d.querySelector('#vault-upload-btn')&&d.querySelector('.photo-card'));status.textContent='管理员预览就绪';};frame.src='/album/';
+document.querySelector('#open').onclick=async()=>{d.querySelector('.photo-card').click();await wait(()=>d.querySelector('#lightbox').open&&!d.querySelector('#admin-rarity-tools').hidden);d.querySelector('#edit-photo-rarity').click();await wait(()=>!d.querySelector('#photo-rarity-form').hidden);status.textContent='已有照片四档设置入口已打开';};
+document.querySelector('#phone').onclick=()=>{frame.style.width='390px';requestAnimationFrame(()=>status.textContent=d.documentElement.scrollWidth<=d.documentElement.clientWidth+1?'PASS · 手机无横向溢出':'FAIL · 横向溢出');};
+</script>

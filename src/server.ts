@@ -9,7 +9,7 @@ const publicRoot=path.join(__dirname,'public');
 const staticFiles=new Map<string,string>();
 function inventory(dir:string,prefix=''){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const file=path.join(dir,entry.name),name=prefix+entry.name;if(entry.isDirectory())inventory(file,name+'/');else staticFiles.set('/api/'+name,file);}}
 if(fs.existsSync(publicRoot))inventory(publicRoot);
-const mime:Record<string,string>={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.ttf':'font/ttf'};
+const mime:Record<string,string>={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.ttf':'font/ttf','.json':'application/json','.webp':'image/webp','.png':'image/png','.jpg':'image/jpeg','.mp3':'audio/mpeg','.m4a':'audio/mp4'};
 http.createServer(async(req,res)=>{
   try{
     const requestPath=req.url||'/';

@@ -15,3 +15,7 @@ dist/
 .DS_Store
 Thumbs.db
 verification-*.json
+
+coverage/
+verification*.json
+/package-manifest.json

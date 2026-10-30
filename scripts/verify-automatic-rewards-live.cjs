@@ -1,0 +1,14 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..');process.chdir(root);
+(async()=>{
+ const c=await require('@cloudbase/toolbox').getCredentialWithoutCheck({cwd:root}),C=require('@cloudbase/manager-node'),m=new(C.default||C)({envId:'class7-memory-d0gcpjaqu47530c54',region:'ap-shanghai',secretId:c.secretId,secretKey:c.secretKey,token:c.token});
+ async function value(Sql,Role){const raw=await m.database.executePGSql({Sql,...(Role?{Role}:{})});const row=JSON.parse(raw.Rows[0]);let v=Array.isArray(row)?row[0]:Object.values(row)[0];return typeof v==='string'&&/^[{[]/.test(v)?JSON.parse(v):v;}
+ const state=await value("SELECT class7_test.reward_points_state('synthetic-reward-check-no-account')",'service_role');assert.equal(state.totalPoints,0);
+ const audit=await value("SELECT result FROM class7_test.admin_card_adjustments WHERE campaign='collection-rewards-backfill-20261021-001'");assert(audit.recipients>0&&audit.totalPoints>0);
+ const receipt=JSON.parse(fs.readFileSync('.private/collection-rewards-backfill-20261021-001-receipt.json','utf8'));
+ for(const before of receipt.beforeState){const after=receipt.result.afterPoints.find(x=>x.account_id===before.accountId),bonus=receipt.result.grants.find(x=>x.accountId===before.accountId)?.points||0;assert.equal(after.total,before.total+bonus);}
+ const counts=await value("SELECT jsonb_build_object('grants',(SELECT count(*) FROM class7_test.collection_reward_grants),'ledger',(SELECT count(*) FROM class7_test.points_ledger WHERE reason='collection_twenty'),'sum',(SELECT COALESCE(sum(points),0) FROM class7_test.points_ledger WHERE reason='collection_twenty'),'firstWeek',(SELECT first_week AT TIME ZONE 'Asia/Shanghai' FROM class7_test.weekly_reward_settings),'weeklyGrants',(SELECT count(*) FROM class7_test.weekly_reward_grants))");assert.equal(counts.grants,counts.ledger);assert(counts.sum>=audit.totalPoints);
+ const base='https://class7-memory-d0gcpjaqu47530c54-1509361747.ap-shanghai.app.tcloudbase.com/api/';
+ const page=await fetch(base,{signal:AbortSignal.timeout(45000)});assert.equal(page.status,200);const html=await page.text();assert(html.includes('每收藏满 20 张不同照片'));assert(html.includes('周榜前三 · 每人奖励 90 积分'));
+ const report={checkedAt:new Date().toISOString(),serviceRolePointsFunction:true,existingInventoryBackfillRecipients:audit.recipients,existingInventoryBackfillPoints:audit.totalPoints,backfillBalancesMatchReceipt:true,grantLedgerCountsMatch:true,weeklyRewardsStartBeijing:counts.firstWeek,weeklyGrantsSoFar:counts.weeklyGrants,collectionAndWeeklyRulesVisible:true,passed:true};fs.writeFileSync('verification-automatic-rewards-live.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
+})().catch(e=>{console.error(e.message);process.exitCode=1;});

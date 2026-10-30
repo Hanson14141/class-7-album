@@ -1,0 +1,8 @@
+{
+  "name": "class7-dungeon-relay",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {"start": "node server.mjs"},
+  "dependencies": {"socket.io": "4.8.4"}
+}

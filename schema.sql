@@ -1006,7 +1006,7 @@ GRANT EXECUTE ON FUNCTION class7_test.buy_mall_photo(text,text,date,uuid,integer
 
 -- Classified Photo Vault
 -- Defines photo_in_vault check, photo_vault_admins whitelist table,
--- 4-tier weighted draws (82/10/5/3), and exclusive vault photo acquisition.
+-- 4-tier weighted draws (95.95/3/1/0.05), and exclusive vault photo acquisition.
 
 CREATE OR REPLACE FUNCTION class7_test.photo_in_vault(p_photo text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
@@ -1028,7 +1028,7 @@ ALTER TABLE class7_test.photo_rarities ADD CONSTRAINT photo_rarities_rarity_chec
 ALTER TABLE class7_test.mall_photo_inventory DROP CONSTRAINT IF EXISTS mall_photo_inventory_price_check;
 ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN (10,20,30,40,80));
 
--- Replace 3-pool draw with 4-pool draw (82 / 10 / 5 / 3)
+-- Replace 3-pool draw with 4-pool draw (95.95 / 3 / 1 / 0.05)
 DROP FUNCTION IF EXISTS class7_test.draw_photo_pool(text[],text[],text[],integer);
 DROP FUNCTION IF EXISTS class7_test.draw_photo_pool(text[],text[],text[]);
 
@@ -1038,10 +1038,10 @@ DECLARE result text[]:='{}'; item text; wc integer; we integer; wl integer; ws i
 BEGIN
  c:=COALESCE(c,'{}'); e:=COALESCE(e,'{}'); l:=COALESCE(l,'{}'); s:=COALESCE(s,'{}');
  FOR slot IN 1..LEAST(5,GREATEST(0,n)) LOOP
-  wc:=CASE WHEN cardinality(c)>0 THEN 82 ELSE 0 END;
-  we:=CASE WHEN cardinality(e)>0 THEN 10 ELSE 0 END;
-  wl:=CASE WHEN cardinality(l)>0 THEN 5 ELSE 0 END;
-  ws:=CASE WHEN cardinality(s)>0 THEN 3 ELSE 0 END;
+  wc:=CASE WHEN cardinality(c)>0 THEN 1919 ELSE 0 END;
+  we:=CASE WHEN cardinality(e)>0 THEN 60 ELSE 0 END;
+  wl:=CASE WHEN cardinality(l)>0 THEN 20 ELSE 0 END;
+  ws:=CASE WHEN cardinality(s)>0 THEN 1 ELSE 0 END;
   IF wc+we+wl+ws=0 THEN EXIT; END IF;
   roll:=random()*(wc+we+wl+ws);
   IF roll<wc THEN idx:=1+floor(random()*cardinality(c))::integer;item:=c[idx];c:=array_remove(c,item);
@@ -1164,7 +1164,7 @@ GRANT SELECT ON class7_test.collection_set_achievements TO service_role;
 CREATE OR REPLACE FUNCTION class7_test.unlock_collection_sets(p_account text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
 DECLARE result jsonb;
 BEGIN
- WITH owned AS(SELECT photo_id FROM class7_test.mall_photo_inventory WHERE account_id=p_account),roster AS(SELECT id AS photo_id FROM class7_test.photos UNION SELECT photo_id FROM owned),complete AS(SELECT COALESCE(r.rarity,'common') AS rarity FROM roster p LEFT JOIN class7_test.photo_rarities r USING(photo_id) LEFT JOIN owned o USING(photo_id) GROUP BY COALESCE(r.rarity,'common') HAVING count(*)>0 AND count(*)=count(o.photo_id))
+ WITH owned AS(SELECT photo_id FROM class7_test.mall_photo_inventory WHERE account_id=p_account),roster AS(SELECT id AS photo_id FROM class7_test.photos UNION SELECT photo_id FROM owned),complete AS(SELECT COALESCE(r.rarity,'common') AS rarity FROM roster p LEFT JOIN class7_test.photo_rarities r USING(photo_id) LEFT JOIN owned o USING(photo_id) GROUP BY COALESCE(r.rarity,'common') HAVING count(*)>0 AND CASE WHEN COALESCE(r.rarity,'common')='classified' THEN count(o.photo_id)>=1 ELSE count(*)=count(o.photo_id) END)
  INSERT INTO class7_test.collection_set_achievements(account_id,rarity) SELECT p_account,rarity FROM complete ON CONFLICT DO NOTHING;
  SELECT COALESCE(jsonb_agg(jsonb_build_object('rarity',rarity,'unlockedAt',unlocked_at) ORDER BY rarity),'[]'::jsonb) INTO result FROM class7_test.collection_set_achievements WHERE account_id=p_account;
  RETURN result;
@@ -1348,8 +1348,8 @@ END $$;
 CREATE TABLE IF NOT EXISTS class7_test.photo_draw_state(
  account_id text PRIMARY KEY REFERENCES class7_test.accounts(id) ON DELETE CASCADE,
  total_draws integer NOT NULL DEFAULT 0 CHECK(total_draws>=0),
- legendary_misses integer NOT NULL DEFAULT 0 CHECK(legendary_misses BETWEEN 0 AND 29),
- classified_misses integer NOT NULL DEFAULT 0 CHECK(classified_misses BETWEEN 0 AND 49),
+ legendary_misses integer NOT NULL DEFAULT 0 CHECK(legendary_misses BETWEEN 0 AND 49),
+ classified_misses integer NOT NULL DEFAULT 0 CHECK(classified_misses>=0),
  updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS class7_test.photo_draw_requests(
@@ -1361,7 +1361,7 @@ CREATE TABLE IF NOT EXISTS class7_test.photo_draw_requests(
 REVOKE ALL ON class7_test.photo_draw_state,class7_test.photo_draw_requests FROM PUBLIC,anon,authenticated,service_role;
 GRANT SELECT ON class7_test.photo_draw_state,class7_test.photo_draw_requests TO service_role;
 ALTER TABLE class7_test.mall_photo_inventory DROP CONSTRAINT IF EXISTS mall_photo_inventory_price_check;
-ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN(9,10,20,30,40,80));
+ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN(0,9,10,20,30,40,80));
 
 CREATE OR REPLACE FUNCTION class7_test.draw_photos(p_account text,p_count integer,p_request uuid,p_expected_cost integer) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
@@ -1394,17 +1394,14 @@ BEGIN
   SELECT class7_test.canonical_owner(a.owner_hash),COALESCE(NULLIF(p.nickname,''),a.username) INTO buyer_hash,buyer_name
    FROM class7_test.accounts a LEFT JOIN class7_test.profiles p ON p.device_hash=class7_test.canonical_owner(a.owner_hash) WHERE a.id=p_account;
   FOR n IN 1..p_count LOOP
-   guaranteed:=CASE WHEN state.classified_misses>=49 THEN 'classified' WHEN state.legendary_misses>=29 THEN 'legendary' ELSE NULL END;
+   guaranteed:=CASE WHEN state.legendary_misses>=49 THEN 'legendary' ELSE NULL END;
    LOOP
     SELECT array_agg(p.id) FILTER(WHERE COALESCE(r.rarity,'common')='common'),array_agg(p.id) FILTER(WHERE r.rarity='epic'),
      array_agg(p.id) FILTER(WHERE r.rarity='legendary'),array_agg(p.id) FILTER(WHERE r.rarity='classified') INTO c,e,l,s
     FROM class7_test.photos p LEFT JOIN class7_test.photo_rarities r ON r.photo_id=p.id
     WHERE NOT EXISTS(SELECT 1 FROM class7_test.mall_photo_inventory i WHERE i.account_id=p_account AND i.photo_id=p.id)
      AND (COALESCE(r.rarity,'common')<>'classified' OR class7_test.photo_in_vault(p.id));
-    IF guaranteed='classified' THEN
-     IF COALESCE(cardinality(s),0)=0 THEN RAISE EXCEPTION USING ERRCODE='P7001',MESSAGE='classified_empty'; END IF;
-     selected:=s[1+floor(random()*cardinality(s))::integer];
-    ELSIF guaranteed='legendary' THEN
+    IF guaranteed='legendary' THEN
      IF COALESCE(cardinality(l),0)+COALESCE(cardinality(s),0)=0 THEN RAISE EXCEPTION USING ERRCODE='P7001',MESSAGE='legendary_empty'; END IF;
      selected:=(class7_test.draw_photo_pool('{}','{}',l,s,1))[1];
     ELSE
@@ -1442,3 +1439,151 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION class7_test.draw_photos(text,integer,uuid,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION class7_test.draw_photos(text,integer,uuid,integer) TO service_role;
+
+
+ALTER TABLE class7_test.photo_draw_state DROP CONSTRAINT IF EXISTS photo_draw_state_legendary_misses_check;
+ALTER TABLE class7_test.photo_draw_state ADD CONSTRAINT photo_draw_state_legendary_misses_check CHECK(legendary_misses BETWEEN 0 AND 49);
+ALTER TABLE class7_test.photo_draw_state DROP CONSTRAINT IF EXISTS photo_draw_state_classified_misses_check;
+ALTER TABLE class7_test.photo_draw_state ADD CONSTRAINT photo_draw_state_classified_misses_check CHECK(classified_misses>=0);
+ALTER TABLE class7_test.mall_photo_inventory DROP CONSTRAINT IF EXISTS mall_photo_inventory_price_check;
+ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN(0,9,10,20,30,40,80));
+
+
+-- Automatic weekly and collection rewards
+-- Install after the current card and private-contest rules. No historical prizes.
+CREATE TABLE IF NOT EXISTS class7_test.weekly_reward_settings(
+ singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
+ first_week timestamptz NOT NULL DEFAULT class7_test.contest_week_start(clock_timestamp())
+);
+INSERT INTO class7_test.weekly_reward_settings(singleton) VALUES(true) ON CONFLICT DO NOTHING;
+CREATE TABLE IF NOT EXISTS class7_test.weekly_reward_periods(
+ board text NOT NULL CHECK(board IN('photo','comment')),week_start timestamptz NOT NULL,
+ settled_at timestamptz NOT NULL DEFAULT clock_timestamp(),PRIMARY KEY(board,week_start)
+);
+CREATE TABLE IF NOT EXISTS class7_test.weekly_reward_grants(
+ board text NOT NULL,week_start timestamptz NOT NULL,account_id text NOT NULL REFERENCES class7_test.accounts(id),
+ owner_hash text NOT NULL,rank integer NOT NULL CHECK(rank BETWEEN 1 AND 3),content_id text NOT NULL,
+ points integer NOT NULL CHECK(points=90),created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ PRIMARY KEY(board,week_start,account_id),UNIQUE(board,week_start,owner_hash),
+ FOREIGN KEY(board,week_start) REFERENCES class7_test.weekly_reward_periods(board,week_start)
+);
+CREATE TABLE IF NOT EXISTS class7_test.collection_reward_grants(
+ account_id text NOT NULL REFERENCES class7_test.accounts(id),block_no integer NOT NULL CHECK(block_no>0),
+ points integer NOT NULL CHECK(points=20),created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ PRIMARY KEY(account_id,block_no)
+);
+REVOKE ALL ON class7_test.weekly_reward_settings,class7_test.weekly_reward_periods,class7_test.weekly_reward_grants,class7_test.collection_reward_grants FROM PUBLIC,anon,authenticated,service_role;
+GRANT SELECT ON class7_test.weekly_reward_settings,class7_test.weekly_reward_periods,class7_test.weekly_reward_grants,class7_test.collection_reward_grants TO service_role;
+
+CREATE OR REPLACE FUNCTION class7_test.award_closed_contests(p_board text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
+DECLARE period record;winner record;claimed timestamptz;entry uuid;reason_name text;
+BEGIN
+ IF p_board NOT IN('photo','comment') THEN RAISE EXCEPTION 'Invalid reward board'; END IF;
+ PERFORM pg_advisory_xact_lock(72407180371001);
+ reason_name:=CASE WHEN p_board='photo' THEN 'weekly_photo_top3' ELSE 'weekly_comment_top3' END;
+ FOR period IN
+  SELECT w.week_start FROM (
+   SELECT week_start FROM class7_test.contest_weeks WHERE p_board='photo'
+   UNION ALL SELECT week_start FROM class7_test.comment_contest_weeks WHERE p_board='comment'
+  ) w CROSS JOIN class7_test.weekly_reward_settings s
+  WHERE w.week_start>=s.first_week AND w.week_start<class7_test.contest_week_start(clock_timestamp())
+   AND NOT EXISTS(SELECT 1 FROM class7_test.weekly_reward_periods x WHERE x.board=p_board AND x.week_start=w.week_start)
+  ORDER BY w.week_start
+ LOOP
+  claimed:=NULL;
+  INSERT INTO class7_test.weekly_reward_periods(board,week_start) VALUES(p_board,period.week_start)
+   ON CONFLICT DO NOTHING RETURNING week_start INTO claimed;
+  IF claimed IS NULL THEN CONTINUE; END IF;
+  FOR winner IN
+   WITH finalists AS (
+    (SELECT p.owner_hash,r.photo_id AS content_id,row_number() OVER(ORDER BY r.rank)::integer AS rank
+     FROM class7_test.contest_results r JOIN class7_test.photos p ON p.id=r.photo_id
+     WHERE p_board='photo' AND r.week_start=period.week_start AND NOT class7_test.photo_is_classified(p.id)
+     ORDER BY r.rank LIMIT 3)
+    UNION ALL
+    (SELECT c.owner_hash,r.comment_id AS content_id,row_number() OVER(ORDER BY r.rank)::integer AS rank
+     FROM class7_test.comment_contest_results r JOIN class7_test.comments c ON c.id=r.comment_id JOIN class7_test.photos p ON p.id=c.photo_id
+     WHERE p_board='comment' AND r.week_start=period.week_start AND NOT class7_test.photo_is_classified(p.id)
+     ORDER BY r.rank LIMIT 3)
+   ),people AS (
+    SELECT DISTINCT ON(class7_test.canonical_owner(owner_hash)) class7_test.canonical_owner(owner_hash) AS group_owner,rank,content_id
+    FROM finalists ORDER BY class7_test.canonical_owner(owner_hash),rank
+   )
+   SELECT a.id AS account_id,p.* FROM people p JOIN class7_test.accounts a ON a.owner_hash=p.group_owner ORDER BY a.id
+  LOOP
+   INSERT INTO class7_test.weekly_reward_grants(board,week_start,account_id,owner_hash,rank,content_id,points)
+    VALUES(p_board,period.week_start,winner.account_id,winner.group_owner,winner.rank,winner.content_id,90);
+   entry:=NULL;
+   INSERT INTO class7_test.points_ledger(account_id,points,reason,ref_id)
+    VALUES(winner.account_id,90,reason_name,to_char(period.week_start AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD'))
+    ON CONFLICT(account_id,reason,ref_id) DO NOTHING RETURNING id INTO entry;
+   IF entry IS NOT NULL THEN
+    INSERT INTO class7_test.user_points(account_id,total)VALUES(winner.account_id,90)
+     ON CONFLICT(account_id)DO UPDATE SET total=class7_test.user_points.total+90,updated_at=now();
+   END IF;
+  END LOOP;
+ END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION class7_test.award_collection_rewards(p_account text) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
+DECLARE blocks integer;bonus integer:=0;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM class7_test.accounts WHERE id=p_account)THEN RETURN 0;END IF;
+ -- The same balance row as purchases is locked first; no inverted inventory locks.
+ INSERT INTO class7_test.user_points(account_id,total)VALUES(p_account,0)ON CONFLICT DO NOTHING;
+ PERFORM account_id FROM class7_test.user_points WHERE account_id=p_account FOR UPDATE;
+ SELECT (count(DISTINCT photo_id)/20)::integer INTO blocks FROM class7_test.mall_photo_inventory WHERE account_id=p_account;
+ WITH new_blocks AS (
+  INSERT INTO class7_test.collection_reward_grants(account_id,block_no,points)
+   SELECT p_account,n,20 FROM generate_series(1,blocks)n ON CONFLICT DO NOTHING RETURNING block_no
+ ),credited AS (
+  INSERT INTO class7_test.points_ledger(account_id,points,reason,ref_id)
+   SELECT p_account,20,'collection_twenty','block:'||block_no FROM new_blocks
+   ON CONFLICT(account_id,reason,ref_id)DO NOTHING RETURNING points
+ )SELECT COALESCE(sum(points),0)::integer INTO bonus FROM credited;
+ IF bonus>0 THEN UPDATE class7_test.user_points SET total=total+bonus,updated_at=now()WHERE account_id=p_account;END IF;
+ RETURN bonus;
+END $$;
+
+-- Keep the original finalizers/purchase implementations; install wrappers once.
+DO $$ BEGIN
+ IF to_regprocedure('class7_test.contest_tick_without_rewards()')IS NULL THEN ALTER FUNCTION class7_test.contest_tick() RENAME TO contest_tick_without_rewards;END IF;
+ IF to_regprocedure('class7_test.comment_contest_tick_without_rewards()')IS NULL THEN ALTER FUNCTION class7_test.comment_contest_tick() RENAME TO comment_contest_tick_without_rewards;END IF;
+ IF to_regprocedure('class7_test.draw_photos_without_rewards(text,integer,uuid,integer)')IS NULL THEN ALTER FUNCTION class7_test.draw_photos(text,integer,uuid,integer) RENAME TO draw_photos_without_rewards;END IF;
+ IF to_regprocedure('class7_test.buy_mall_photo_without_rewards(text,text,date,uuid,integer)')IS NULL THEN ALTER FUNCTION class7_test.buy_mall_photo(text,text,date,uuid,integer) RENAME TO buy_mall_photo_without_rewards;END IF;
+END $$;
+CREATE OR REPLACE FUNCTION class7_test.contest_tick() RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
+BEGIN PERFORM class7_test.contest_tick_without_rewards();PERFORM class7_test.award_closed_contests('photo');END $$;
+CREATE OR REPLACE FUNCTION class7_test.comment_contest_tick() RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
+BEGIN PERFORM class7_test.comment_contest_tick_without_rewards();PERFORM class7_test.award_closed_contests('comment');END $$;
+CREATE OR REPLACE FUNCTION class7_test.draw_photos(p_account text,p_count integer,p_request uuid,p_expected_cost integer)RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
+DECLARE result jsonb;bonus integer;balance integer;
+BEGIN
+ result:=class7_test.draw_photos_without_rewards(p_account,p_count,p_request,p_expected_cost);
+ IF COALESCE((result->>'ok')::boolean,false)THEN
+  bonus:=class7_test.award_collection_rewards(p_account);SELECT total INTO balance FROM class7_test.user_points WHERE account_id=p_account;
+  result:=result||jsonb_build_object('totalPoints',balance,'collectionReward',bonus);
+ END IF;RETURN result;
+END $$;
+CREATE OR REPLACE FUNCTION class7_test.buy_mall_photo(p_account text,p_photo text,p_day date,p_request uuid,p_expected_price integer)RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
+DECLARE result jsonb;bonus integer;balance integer;
+BEGIN
+ result:=class7_test.buy_mall_photo_without_rewards(p_account,p_photo,p_day,p_request,p_expected_price);
+ IF COALESCE((result->>'bought')::boolean,false) OR COALESCE((result->>'alreadyOwned')::boolean,false)THEN
+  bonus:=class7_test.award_collection_rewards(p_account);SELECT total INTO balance FROM class7_test.user_points WHERE account_id=p_account;
+  result:=result||jsonb_build_object('total',balance,'collectionReward',bonus);
+ END IF;RETURN result;
+END $$;
+CREATE OR REPLACE FUNCTION class7_test.reward_points_state(p_account text)RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
+DECLARE state jsonb;
+BEGIN
+ PERFORM class7_test.contest_tick();PERFORM class7_test.comment_contest_tick();PERFORM class7_test.award_collection_rewards(p_account);
+ SELECT jsonb_build_object('checkedIn',last_checkin_date=(now()AT TIME ZONE 'Asia/Shanghai')::date,
+  'streak',CASE WHEN last_checkin_date>=(now()AT TIME ZONE 'Asia/Shanghai')::date-1 THEN streak ELSE 0 END,'totalPoints',total)
+ INTO state FROM class7_test.user_points WHERE account_id=p_account;
+ RETURN COALESCE(state,jsonb_build_object('checkedIn',false,'streak',0,'totalPoints',0));
+END $$;
+REVOKE ALL ON FUNCTION class7_test.award_closed_contests(text),class7_test.award_collection_rewards(text),class7_test.contest_tick(),class7_test.comment_contest_tick(),class7_test.draw_photos(text,integer,uuid,integer),class7_test.buy_mall_photo(text,text,date,uuid,integer),class7_test.reward_points_state(text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION class7_test.award_closed_contests(text),class7_test.award_collection_rewards(text),class7_test.contest_tick(),class7_test.comment_contest_tick(),class7_test.draw_photos(text,integer,uuid,integer),class7_test.buy_mall_photo(text,text,date,uuid,integer),class7_test.reward_points_state(text) TO service_role;

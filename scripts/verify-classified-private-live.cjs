@@ -3,7 +3,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict');
 const base='https://class7-memory-d0gcpjaqu47530c54-1509361747.ap-shanghai.app.tcloudbase.com/api/';
 (async()=>{
  const root=require('node:path').resolve(__dirname,'..');process.chdir(root);
- const c=await require('../../cloudbase-tools/node_modules/@cloudbase/toolbox').getCredentialWithoutCheck({cwd:root}),C=require('../../cloudbase-tools/node_modules/@cloudbase/manager-node');
+ const c=await require('@cloudbase/toolbox').getCredentialWithoutCheck({cwd:root}),C=require('@cloudbase/manager-node');
  const m=new(C.default||C)({envId:'class7-memory-d0gcpjaqu47530c54',region:'ap-shanghai',secretId:c.secretId,secretKey:c.secretKey,token:c.token});
  const rows=await m.database.executePGSql({Sql:"SELECT jsonb_build_object('total',(SELECT count(*) FROM class7_test.photos WHERE NOT class7_test.photo_is_classified(id)),'classified',COALESCE(jsonb_agg(p.id),'[]'::jsonb),'collected',count(*) FILTER(WHERE EXISTS(SELECT 1 FROM class7_test.mall_photo_inventory i WHERE i.photo_id=p.id))) FROM class7_test.photos p WHERE class7_test.photo_is_classified(p.id)"});
  const row=JSON.parse(rows.Rows[0]);let expected=Array.isArray(row)?row[0]:Object.values(row)[0];if(typeof expected==='string')expected=JSON.parse(expected);

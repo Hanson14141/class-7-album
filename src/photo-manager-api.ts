@@ -1,25 +1,20 @@
-function managerCursor(value:any){return btoa(encodeURIComponent(JSON.stringify(value)));}
-function readManagerCursor(value:string|null){
- if(!value)return null;
- try{const cursor=JSON.parse(decodeURIComponent(atob(value)));if(typeof cursor.date!=='string'||!Number.isFinite(Date.parse(cursor.date))||typeof cursor.id!=='string'||!uuid.test(cursor.id)||typeof cursor.search!=='string'||typeof cursor.rarity!=='string')throw Error();return cursor;}catch{throw new ApiError(400,'分页信息无效，请刷新照片管理。');}
-}
+// Administrator-only, paginated metadata. No per-photo signing or whole-album download.
 async function adminPhotosRoute(request:Request){
- await requirePhotoAdmin(request);
- const url=new URL(request.url),search=(url.searchParams.get('search')||'').trim(),rarity=url.searchParams.get('rarity')||'all';
- if(search.length>100||search.includes('\0'))throw new ApiError(400,'搜索内容请控制在 100 个字符以内。');
+ await requirePhotoAdmin(request);const url=new URL(request.url),search=shortText(url.searchParams.get('search')||'',100),rarity=url.searchParams.get('rarity')||'all';
  if(!['all','common','epic','legendary','classified'].includes(rarity))throw new ApiError(400,'卡牌等级筛选无效。');
- const cursor=readManagerCursor(url.searchParams.get('cursor'));
- if(cursor&&(cursor.search!==search||cursor.rarity!==rarity))throw new ApiError(400,'筛选条件已变化，请重新查询。');
- const where:string[]=[],values:any[]=[];
- if(search){where.push("strpos(lower(p.title||' '||p.uploader),lower(?))>0");values.push(search);}
- if(rarity!=='all'){where.push("COALESCE(r.rarity,'common')=?");values.push(rarity);}
- const filter=where.length?' WHERE '+where.join(' AND '):'';
- const pageWhere=[...where],pageValues=[...values];
- if(cursor){pageWhere.push('(p.created_at,p.id)<(?::timestamptz,?::uuid)');pageValues.push(cursor.date,cursor.id);}
- const batch=await database().batch([
-  database().prepare('SELECT p.*,p.id AS photo_id,COALESCE(r.rarity,\'common\') AS rarity FROM photos p LEFT JOIN class7_test.photo_rarities r ON r.photo_id=p.id'+(pageWhere.length?' WHERE '+pageWhere.join(' AND '):'')+' ORDER BY p.created_at DESC,p.id DESC LIMIT 13').bind(...pageValues),
-  database().prepare('SELECT count(*) AS n FROM photos p LEFT JOIN class7_test.photo_rarities r ON r.photo_id=p.id'+filter).bind(...values)
+ const scope=encodeURIComponent(JSON.stringify([search,rarity])),raw=url.searchParams.get('cursor');let cursor:any=null;
+ if(raw){try{cursor=JSON.parse(atob(raw));}catch{throw new ApiError(400,'分页无效，请刷新照片管理。');}
+  if(!cursor||cursor.scope!==scope||typeof cursor.date!=='string'||cursor.date.length>40||!Number.isFinite(Date.parse(cursor.date))||!uuid.test(cursor.id))throw new ApiError(400,'筛选条件已变化，请重新查询。');
+ }
+ const filters:string[]=[],values:unknown[]=[];
+ if(search){filters.push("strpos(lower(p.title||' '||p.uploader),lower(?))>0");values.push(search);}
+ if(rarity!=='all'){filters.push("COALESCE(r.rarity,'common')=?");values.push(rarity);}
+ const pageFilters=[...filters],pageValues=[...values];if(cursor){pageFilters.push('(p.created_at<? OR (p.created_at=? AND p.id<?))');pageValues.push(cursor.date,cursor.date,cursor.id);}
+ const from=' FROM photos p LEFT JOIN class7_test.photo_rarities r ON r.photo_id=p.id';
+ const results=await database().batch([
+  database().prepare("SELECT p.id,p.title,p.caption,p.uploader,p.width,p.height,p.rotation,p.created_at,COALESCE(r.rarity,'common') AS rarity"+from+(pageFilters.length?' WHERE '+pageFilters.join(' AND '):'')+' ORDER BY p.created_at DESC,p.id DESC LIMIT 13').bind(...pageValues),
+  database().prepare('SELECT count(*) AS n'+from+(filters.length?' WHERE '+filters.join(' AND '):'')).bind(...values)
  ]);
- const rows=batch[0].results as any[],page=rows.slice(0,12);
- return response({photos:await Promise.all(page.map(async row=>({...await mallPhotoView(row),id:row.photo_id}))),total:Number((batch[1].results[0] as any)?.n)||0,nextCursor:rows.length>12?managerCursor({date:page[page.length-1].created_at,id:page[page.length-1].photo_id,search,rarity}):null});
+ const found=results[0].results as any[],photos=found.slice(0,12),last=photos.at(-1);
+ return response({photos:photos.map(p=>({id:p.id,title:p.title,caption:p.caption,uploader:p.uploader,width:Number(p.width),height:Number(p.height),rotation:Number(p.rotation)||0,rarity:p.rarity,src:'/api/files/'+encodeURIComponent(p.id)})),total:Number(results[1].results[0]?.n)||0,nextCursor:found.length>12&&last?btoa(JSON.stringify({scope,date:last.created_at,id:last.id})):null});
 }

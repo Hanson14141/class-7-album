@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>评论照片库手机排版验证</title>
+<style>body{font:14px system-ui;margin:16px;background:#eee}button{padding:8px;margin:0 6px 8px 0}pre{white-space:pre-wrap}iframe{display:block;width:390px;height:844px;border:1px solid #aaa;background:white}</style>
+<script>localStorage.setItem('class7-photo-order','random');localStorage.setItem('class7-usage-notice-seen','1');sessionStorage.setItem('class7-camera-intro-seen','1');</script>
+<button id="open">打开照片库</button><button id="run">运行排版检查</button><pre id="result">尚未运行；仅本机合成数据</pre><iframe id="site" src="/album/"></iframe>
+<script>
+const frame=document.querySelector('#site'),result=document.querySelector('#result');
+const wait=async test=>{for(let i=0;i<200;i++){if(test())return;await new Promise(r=>setTimeout(r,50));}throw Error('等待状态超时');};
+const check=(ok,message)=>{if(!ok)throw Error(message);};
+async function openPicker(){const d=frame.contentDocument;await wait(()=>d.querySelector('#photo-wall button'));d.querySelector('#photo-wall button').click();await wait(()=>d.querySelector('#lightbox').open);d.querySelector('#comment-emoji-toggle').click();await wait(()=>d.querySelectorAll('.comment-emoji-choice').length>=20);d.querySelector('#comment-emoji-picker').scrollIntoView({block:'center'});return d;}
+document.querySelector('#open').onclick=async()=>{try{await openPicker();result.textContent='照片库已打开，20张合成照片';}catch(e){result.textContent='FAIL '+e.message;}};
+document.querySelector('#run').onclick=async()=>{try{
+ const d=frame.contentDocument;if(!d.querySelector('#lightbox').open||d.querySelector('#comment-emoji-picker').hidden)await openPicker();const report=[];
+ for(const width of [320,390,430,900,390]){
+  frame.style.width=width+'px';await new Promise(r=>setTimeout(r,150));const grid=d.querySelector('#comment-emoji-grid'),cells=[...grid.children];await wait(()=>cells.every(c=>c.querySelector('img').complete));
+  const columns=width<=700?4:6,rects=cells.map(c=>c.getBoundingClientRect()),cell=rects[0];
+  check(Math.abs(cell.width-cell.height)<2,width+'px 照片格应为正方形，实际 '+cell.width.toFixed(1)+' × '+cell.height.toFixed(1));
+  check(rects.every(r=>Math.abs(r.width-cell.width)<2&&Math.abs(r.height-cell.height)<2),width+'px 照片格尺寸一致');
+  check(rects.slice(0,columns).every(r=>Math.abs(r.top-cell.top)<2)&&rects[columns].top>cell.top+cell.height-1,width+'px 列数和行间距');
+  check(grid.scrollWidth<=grid.clientWidth+1&&d.documentElement.scrollWidth<=d.documentElement.clientWidth+1,width+'px 无横向溢出');
+  check(cells.every(c=>{const i=c.querySelector('img');return Math.abs(i.getBoundingClientRect().width-c.clientWidth)<2&&Math.abs(i.getBoundingClientRect().height-c.clientHeight)<2;}),width+'px 缩略图随格子重新适配');
+  report.push({width,columns,cell:Math.round(cell.width),scrollable:grid.scrollHeight>grid.clientHeight});
+ }
+ d.querySelector('#comment-emoji-more').click();await wait(()=>d.querySelectorAll('.comment-emoji-choice').length===40);const grid=d.querySelector('#comment-emoji-grid');grid.scrollTop=grid.scrollHeight;check(grid.scrollTop>0,'库存可滚动');grid.lastElementChild.click();check(!d.querySelector('#comment-emoji-selected').hidden&&d.querySelector('#comment-emoji-picker').hidden,'滚动后的照片可选择');
+ result.textContent='PASS '+JSON.stringify({localSyntheticOnly:true,layouts:report,pagination:true,selection:true});
+ }catch(e){result.textContent='FAIL '+e.message;}};
+</script></html>

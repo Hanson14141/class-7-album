@@ -8,7 +8,7 @@ async function addPhotoLikeStates(rows:Photo[],owner:string|null){
  for(const row of rows){const state=states.get(row.id);(row as any).like_count=state?.likeCount||0;(row as any).liked=state?.liked===true;}
 }
 async function photoLikeAction(request:Request,id:string,method:string){
- if(!uuid.test(id))throw new ApiError(404,'照片不存在。');
+ await requirePhoto(id);
  if(method==='GET'){
   await requirePhoto(id);const states=await photoLikeStates([id],await ownerHash(request));
   return response(states.get(id)||{likeCount:0,liked:false});

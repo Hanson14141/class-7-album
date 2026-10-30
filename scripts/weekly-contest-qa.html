@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>每周大赛验证</title>
+<style>body{font:14px system-ui;margin:16px}iframe{width:1300px;height:850px;border:1px solid #aaa}pre{white-space:pre-wrap}</style>
+<h1>每周大赛 · 本机合成验证</h1><button id="run">验证前三名、分页与周次</button><span id="status">等待验证</span><pre id="results"></pre><iframe id="preview" src="/album/"></iframe>
+<script>
+const frame=document.getElementById('preview'),d=()=>frame.contentDocument,delay=ms=>new Promise(r=>setTimeout(r,ms));
+async function wait(check){for(let i=0;i<120;i++){if(check())return;await delay(100);}throw Error('Contest UI did not settle');}
+const cards=()=>[...d().querySelectorAll('.photo-card:not([aria-hidden])')],podium=()=>[...d().querySelectorAll('.contest-card[data-photo-id]')];
+document.getElementById('run').onclick=async()=>{try{
+ document.getElementById('status').textContent='验证中';await wait(()=>d().getElementById('weekly-contest-nav'));const notice=d().getElementById('info-dialog');if(notice.open)notice.querySelector('[data-close-dialog]').click();
+ d().getElementById('weekly-contest-nav').click();await wait(()=>podium().length===3&&cards().length===97);
+ const topIds=podium().map(p=>p.dataset.photoId),uniquePodium=new Set(topIds).size===3,noDuplicateWall=cards().every(p=>!topIds.includes(p.dataset.photoId)),title=d().getElementById('contest-title').textContent;
+ const top=podium()[0];top.click();await wait(()=>d().getElementById('lightbox').open);const ref=top;d().getElementById('photo-like-button').click();await wait(()=>!d().getElementById('photo-like-button').disabled);const stablePodium=ref.isConnected;d().querySelector('[data-close-dialog="lightbox"]').click();
+ d().getElementById('load-more-photos').click();await wait(()=>cards().length===137);const pagination=d().getElementById('load-more-photos').hidden;
+ d().getElementById('contest-previous').click();await wait(()=>d().getElementById('contest-state').textContent==='已结算'&&cards().length===97);const previous=d().getElementById('contest-previous').getAttribute('aria-pressed')==='true';
+ d().querySelector('[data-view="mine"]').click();await wait(()=>d().getElementById('weekly-contest').hidden&&Number(d().getElementById('photo-count').textContent)===123);const mineRestored=true;
+ d().getElementById('weekly-contest-nav').click();await wait(()=>podium().length===3);await fetch('/__qa/weekly-empty');d().getElementById('refresh-gallery').click();await wait(()=>!d().getElementById('contest-empty').hidden&&podium().length===0);const emptyHonest=d().querySelectorAll('.contest-vacant').length===3&&cards().length===0;
+ const result={title,uniquePodium,noDuplicateWall,stablePodium,pagination140Entries:pagination,previous,mineRestored,emptyHonest,passed:uniquePodium&&noDuplicateWall&&stablePodium&&pagination&&previous&&mineRestored&&emptyHonest};document.getElementById('results').textContent=JSON.stringify(result,null,2);document.getElementById('status').textContent=result.passed?'PASS':'FAIL';
+ }catch(e){document.getElementById('status').textContent='FAIL';document.getElementById('results').textContent=e.stack;}};
+</script>

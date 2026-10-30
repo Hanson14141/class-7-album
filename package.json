@@ -1,20 +1,25 @@
 {
   "name": "class7-memory",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "build": "node build.cjs",
-    "check": "node scripts/check-project.cjs",
-    "audit:source": "node scripts/audit-source.cjs",
+    "verify:http": "node scripts/verify-http.cjs",
     "check:points-races": "node scripts/verify-checkin-races.cjs",
     "check:collection": "node scripts/verify-collection.cjs",
-    "check:camera": "node scripts/verify-camera-intro.cjs"
+    "check:camera": "node scripts/verify-camera-intro.cjs",
+    "check:draw-cinema": "node scripts/verify-draw-cinema.cjs",
+    "check:rewards-db": "node scripts/verify-automatic-rewards-db.cjs",
+    "check": "node scripts/check-project.cjs",
+    "audit:source": "node scripts/audit-source.cjs"
   },
   "devDependencies": {
     "@cloudbase/cli": "3.8.7",
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "@cloudbase/manager-node": "5.9.1",
+    "@cloudbase/toolbox": "0.9.1"
   },
-  "description": "高三七班照片集：CloudBase 瀑布照片墙",
+  "description": "高三七班照片集与暗黑地牢 Socket.IO 云端联机",
   "engines": {
     "node": ">=20.19.0"
   }

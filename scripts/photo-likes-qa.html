@@ -1,0 +1,25 @@
+<!doctype html><meta charset="utf-8"><title>照片点赞交互验证</title>
+<style>body{font:14px system-ui;margin:16px;background:#eee}h1{font-size:20px}button{padding:8px 15px}iframe{width:390px;height:844px;border:1px solid #aaa;background:white}section{display:flex;align-items:flex-start;gap:18px}pre{white-space:pre-wrap;max-width:700px}</style>
+<h1>照片点赞验证 · 仅本机合成照片</h1><button id="run">验证点赞、取消、登录与失败恢复</button><span id="status">等待验证</span><section><iframe id="preview" src="/album/"></iframe><pre id="results"></pre></section>
+<script>
+const frame=document.getElementById('preview'),delay=ms=>new Promise(r=>setTimeout(r,ms)),d=()=>frame.contentDocument;
+async function waitFor(check){for(let i=0;i<100;i++){if(check())return;await delay(60);}throw Error('Like interaction did not settle');}
+const button=()=>d().getElementById('photo-like-button'),count=()=>Number(d().getElementById('photo-like-count').textContent),liked=()=>button().getAttribute('aria-pressed')==='true';
+async function openPhoto(){d().querySelector('.photo-card[data-photo-id="local-ui-0"]:not([aria-hidden])').click();await waitFor(()=>d().getElementById('lightbox').open&&!button().disabled);}
+document.getElementById('run').onclick=async()=>{try{
+ document.getElementById('status').textContent='验证中…';await waitFor(()=>d().querySelector('.photo-card'));
+ const notice=d().getElementById('info-dialog');if(notice.open)notice.querySelector('[data-close-dialog]').click();
+ await openPhoto();await delay(300);if(liked()){button().click();await waitFor(()=>!button().disabled&&!liked()&&count()===0);}const wallNode=d().querySelector('.photo-card');button().click();
+ const optimistic=count()===1&&liked()&&button().disabled;await waitFor(()=>!button().disabled&&count()===1);button().click();await waitFor(()=>!button().disabled&&count()===0&&!liked());
+ const cancelled=count()===0;await fetch('/__qa/like-failure',{method:'POST'});button().click();await waitFor(()=>!button().disabled&&!d().getElementById('photo-like-status').hidden);const failureRestored=count()===0&&!liked();
+ button().click();await waitFor(()=>!button().disabled&&count()===1&&liked());const noWallRebuild=wallNode===d().querySelector('.photo-card');
+ const title=d().getElementById('lightbox-title').getBoundingClientRect(),caption=d().getElementById('lightbox-caption').getBoundingClientRect(),heart=button().getBoundingClientRect();
+ const phoneSameScreen=[title,caption,heart].every(r=>r.top>=0&&r.bottom<=frame.contentWindow.innerHeight);
+ d().querySelector('[data-close-dialog="lightbox"]').click();frame.contentWindow.location.reload();await waitFor(()=>d().querySelector('.photo-card')&&!d().getElementById('lightbox').open);await openPhoto();await waitFor(()=>liked()&&count()===1);const persisted=true;
+ d().querySelector('[data-close-dialog="lightbox"]').click();d().getElementById('profile-button').click();d().getElementById('account-logout').click();await waitFor(()=>d().getElementById('profile-label').textContent==='登录'&&!d().getElementById('login-dialog').open);
+ await openPhoto();button().click();await waitFor(()=>d().getElementById('login-dialog').open);const loginRequired=count()===1&&!liked();
+ d().getElementById('account-name').value='local_test';d().getElementById('account-password').value='123456';d().getElementById('account-form').requestSubmit();await waitFor(()=>!d().getElementById('login-dialog').open&&liked()&&!button().disabled);
+ const existingLikeRetainedAfterLogin=count()===1;const result={optimistic,cancelled,failureRestored,noWallRebuild,phoneSameScreen,persisted,loginRequired,existingLikeRetainedAfterLogin};result.passed=Object.values(result).every(Boolean);
+ document.getElementById('results').textContent=JSON.stringify(result,null,2);document.getElementById('status').textContent=result.passed?'PASS':'FAIL';
+ }catch(e){document.getElementById('status').textContent='FAIL';document.getElementById('results').textContent=e.stack;}};
+</script>

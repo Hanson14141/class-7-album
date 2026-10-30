@@ -1,0 +1,37 @@
+// Isolated synthetic records only; never redeem using a real account.
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const root=path.resolve(__dirname,'..'),qa='class7_emoji_qa_'+crypto.randomBytes(5).toString('hex');process.chdir(root);
+const q=x=>"'"+String(x).replaceAll("'","''")+"'",rid=()=>crypto.randomUUID();
+(async()=>{
+ const c=await require('@cloudbase/toolbox').getCredentialWithoutCheck({cwd:root}),C=require('@cloudbase/manager-node'),m=new(C.default||C)({envId:'class7-memory-d0gcpjaqu47530c54',region:'ap-shanghai',secretId:c.secretId,secretKey:c.secretKey,token:c.token});
+ async function sql(text){for(let attempt=0;;attempt++){try{const r=await m.database.executePGSql({Sql:text});return(r.Rows||[]).map(row=>JSON.parse(row));}catch(error){if(attempt>=3||!String(error.message).includes('before secure TLS connection was established'))throw error;await new Promise(resolve=>setTimeout(resolve,800*(attempt+1)));}}}
+ async function value(text){const row=(await sql(text))[0];let v=Array.isArray(row)?row[0]:Object.values(row||{})[0];if(typeof v==='string'&&(/^[{[]/.test(v)||v==='true'||v==='false'))v=JSON.parse(v);return v;}
+
+
+ const vm=require('node:vm'),esbuild=require('esbuild'),rewrite=s=>s.replaceAll('class7_test',qa),pid=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
+ try{
+  await sql(rewrite(fs.readFileSync('schema.sql','utf8')));
+  await sql('INSERT INTO '+qa+".accounts(id,username,owner_hash,password_hash,created_at) VALUES('a','qa_a','a','synthetic','2026-01-01'),('b','qa_b','b','synthetic','2026-01-01');");
+  for(let n=1;n<=2;n++)await sql('INSERT INTO '+qa+'.photos(id,owner_hash,uploader,title,caption,object_key,mime,bytes,width,height,created_at) VALUES('+q(pid(n))+",'a','Synthetic','QA "+n+"','caption','no-file-"+n+"','image/png',1,600,400,'2026-01-01')");
+  const inventory=rid();await sql('INSERT INTO '+qa+'.mall_photo_inventory(account_id,photo_id,request_id,title,uploader,caption,id) VALUES(\'a\','+q(pid(2))+','+q(rid())+",'Emoji QA','Synthetic','caption',"+q(inventory)+'::uuid)');
+  // Compile the real database binding adapter and route source, preserving its service role.
+  const platform=esbuild.transformSync(rewrite(fs.readFileSync('src/platform.ts','utf8').split('const storageOrigin=')[0]),{loader:'ts',format:'cjs'}).code;
+  const pm={exports:{}};vm.runInNewContext(platform,{module:pm,exports:pm.exports,require(){return class{constructor(){return m;}};},process,Buffer,Error});const db=new pm.exports.Database();
+  let account='a';class ApiError extends Error{constructor(status,message){super(message);this.status=status;}}
+  const context=vm.createContext({Response,Request,URL,crypto,Buffer,btoa,atob,ApiError,AccountError:ApiError,uuid:/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i,database:()=>db,response:(x,status=200)=>Response.json(x,{status}),requireAccount:async()=>{if(!account)throw new ApiError(401,'login');return{id:account,username:'qa_'+account,owner_hash:account};},requireAccountProfile:async()=>({write_owner_hash:account,nickname:'Synthetic'}),jsonBody:r=>r.json(),ownerHash:async()=>account,requirePhoto:async id=>{if(!await db.prepare('SELECT id FROM photos WHERE id=?').bind(id).first())throw new ApiError(404,'missing');},shortText:(v,max,required=false)=>{if(typeof v!=='string'||v.length>max||required&&!v.trim())throw new ApiError(400,'invalid text');return v.trim();},decodeCursor:()=>null,encodeCursor:()=>null,normalizePoints:v=>v||null,bucket:()=>({signedUrl:async()=>'/synthetic-only'})});
+  const source=rewrite(fs.readFileSync('src/comment-emoji-api.ts','utf8')+'\n'+fs.readFileSync('src/comment-interactions-api.ts','utf8')+'\n'+fs.readFileSync('src/comment-contest-api.ts','utf8'))+'\nglobalThis.route=commentInteractionRoute;globalThis.board=commentContestPhotos;';vm.runInContext(esbuild.transformSync(source,{loader:'ts'}).code,context);
+  const route=async(data,target=pid(1))=>context.route(new Request('https://qa.invalid/api/photos/'+target+'/comments',{method:'POST',body:JSON.stringify(data)}),['photos',target,'comments'],new URL('https://qa.invalid/api/photos/'+target+'/comments'),'POST');
+  const first=await(await route({body:'',emojiInventoryId:inventory})).json();assert(first.comment.emoji);assert.equal(first.comment.body,'');assert.equal(first.points.points,5);
+  const text=await(await route({body:'text',replyToId:first.comment.id,emojiInventoryId:inventory})).json();assert.equal(text.comment.replyToId,first.comment.id);
+  const legacy=await(await route({body:'plain text remains supported'})).json();assert.equal(legacy.comment.emoji,null);
+  const count=Number(await value('SELECT count(*) FROM '+qa+'.comments')),total=Number(await value('SELECT total FROM '+qa+".user_points WHERE account_id='a'"));
+  account='b';await assert.rejects(()=>route({body:'forged',emojiInventoryId:inventory}),e=>e.status===409);assert.equal(Number(await value('SELECT count(*) FROM '+qa+'.comments')),count);assert.equal(Number(await value('SELECT count(*) FROM '+qa+".points_ledger WHERE account_id='b'")),0);
+  account='a';await assert.rejects(()=>route({body:''}),e=>e.status===400);await assert.rejects(()=>route({body:'',emojiInventoryId:'bad'}),e=>e.status===400);await assert.rejects(()=>route({body:'reply',replyToId:pid(99)}),e=>e.status===409);
+  const get=await context.route(new Request('https://qa.invalid/api/photos/'+pid(1)+'/comments'),['photos',pid(1),'comments'],new URL('https://qa.invalid/'),'GET'),visible=(await get.json()).comments;assert.equal(visible.length,3);assert(visible.filter(c=>c.emoji).every(c=>c.emoji.available&&c.emoji.src));assert(!JSON.stringify(visible).includes(inventory),'Inventory record ID stays private');
+  await sql('SELECT '+qa+'.set_comment_like(\'a\','+q(first.comment.id)+',true)');const board=await(await context.board(new Request('https://qa.invalid/api/comment-board'),new URL('https://qa.invalid/?period=total'))).json();assert(board.entries.some(x=>x.id===first.comment.id&&x.emoji?.available));
+  await sql('DELETE FROM '+qa+'.photos WHERE id='+q(pid(2)));const after=await context.route(new Request('https://qa.invalid/'),['photos',pid(1),'comments'],new URL('https://qa.invalid/'),'GET');assert((await after.json()).comments.filter(x=>x.emoji).every(x=>!x.emoji.available));await assert.rejects(()=>route({body:'no longer exists',emojiInventoryId:inventory}),e=>e.status===409);assert.equal(Number(await value('SELECT total FROM '+qa+".user_points WHERE account_id='a'")),total);
+  await sql(rewrite(fs.readFileSync('comment-emoji.sql','utf8')));assert.equal(Number(await value('SELECT count(*) FROM '+qa+'.comments')),count);
+  const report={checkedAt:new Date().toISOString(),realBindingAndRouteSource:true,serviceRole:true,imageOnlyAndTextReplies:true,ownInventoryRequired:true,invalidAttachmentNoCommentOrPoints:true,oldTextCommentsCompatible:true,publicInventoryIdHidden:true,leaderboardEmoji:true,sourceRemovalPlaceholder:true,migrationIdempotent:true,realDataWritten:false,isolatedSchemaCleaned:true,passed:true};fs.writeFileSync('verification-comment-emoji-db.json',JSON.stringify(report,null,2));console.log('PASS inventory emoji real API + isolated DB: attachment, replies, permission, points, board, deletion');
+ }finally{assert(/^class7_emoji_qa_[0-9a-f]{10}$/.test(qa));await sql('DROP SCHEMA IF EXISTS '+qa+' CASCADE');}
+})().catch(e=>{console.error(e.message);process.exitCode=1;});
+

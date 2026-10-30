@@ -1,0 +1,25 @@
+<!doctype html><meta charset="utf-8"><title>点赞排行验证</title>
+<style>body{font:14px system-ui;margin:16px}iframe{width:1300px;height:760px;border:1px solid #aaa}pre{white-space:pre-wrap}</style>
+<h1>点赞排行 · 367 张合成照片</h1><button id="run">验证排行与分页</button><span id="status">等待验证</span><pre id="results"></pre><iframe id="preview" src="/album/"></iframe>
+<script>
+const f=document.getElementById('preview'),d=()=>f.contentDocument,delay=ms=>new Promise(r=>setTimeout(r,ms));
+async function wait(check){for(let i=0;i<120;i++){if(check())return;await delay(100);}throw Error('UI did not settle');}
+function cards(){return [...d().querySelectorAll('.photo-card:not([aria-hidden])')];}
+function change(id,value){const el=d().getElementById(id);el.value=value;el.dispatchEvent(new Event('change',{bubbles:true}));}
+document.getElementById('run').onclick=async()=>{try{
+ document.getElementById('status').textContent='验证中';await wait(()=>cards().length===100);const notice=d().getElementById('info-dialog');if(notice.open)notice.querySelector('[data-close-dialog]').click();
+ change('photo-order','likes');await wait(()=>cards().length===100&&cards().some(c=>c.dataset.photoId==='local-ui-366'&&c.querySelector('.photo-rank')?.textContent==='1'));
+ const first={loaded:cards().length,total:Number(d().getElementById('photo-count').textContent),globalTopFound:true,shuffleHidden:d().getElementById('shuffle-button').hidden};
+ d().getElementById('load-more-photos').click();await wait(()=>cards().length===200);
+ const ranks=cards().map(c=>Number(c.querySelector('.photo-rank')?.textContent)).sort((a,b)=>a-b),paged=ranks.every((n,i)=>n===i+1);
+ change('uploader-filter','后续同学');await wait(()=>cards().length===100&&cards().every(c=>Number(c.dataset.photoId.split('-').at(-1))>=120));
+ const filter={total:Number(d().getElementById('photo-count').textContent),loaded:cards().length};
+ d().querySelector('[data-view="mine"]').click();await wait(()=>Number(d().getElementById('photo-count').textContent)===123&&cards().length===100);
+ const mineCorrect=cards().every(c=>Number(c.dataset.photoId.split('-').at(-1))%3===0);
+ const firstCard=cards().find(c=>c.querySelector('.photo-rank').textContent==='1');firstCard.click();await wait(()=>d().getElementById('lightbox').open);const ref=firstCard;
+ d().getElementById('photo-like-button').click();await wait(()=>!d().getElementById('photo-like-button').disabled);const noWallRebuild=ref.isConnected;d().querySelector('[data-close-dialog="lightbox"]').click();
+ change('photo-order','random');await wait(()=>cards().length===100&&cards().every(c=>!c.querySelector('.photo-rank')));const randomRestored=!d().getElementById('shuffle-button').hidden;
+ const report=await(await fetch('/__qa/report')).json(),requests=report.rankingRequests;
+ const result={first,paged,filter,mineCorrect,noWallRebuild,randomRestored,requests,passed:paged&&filter.total===164&&mineCorrect&&noWallRebuild&&randomRestored&&first.shuffleHidden};document.getElementById('results').textContent=JSON.stringify(result,null,2);document.getElementById('status').textContent=result.passed?'PASS':'FAIL';
+ }catch(e){document.getElementById('status').textContent='FAIL';document.getElementById('results').textContent=e.stack;}};
+</script>

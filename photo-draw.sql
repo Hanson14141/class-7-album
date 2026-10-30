@@ -2,8 +2,8 @@
 CREATE TABLE IF NOT EXISTS class7_test.photo_draw_state(
  account_id text PRIMARY KEY REFERENCES class7_test.accounts(id) ON DELETE CASCADE,
  total_draws integer NOT NULL DEFAULT 0 CHECK(total_draws>=0),
- legendary_misses integer NOT NULL DEFAULT 0 CHECK(legendary_misses BETWEEN 0 AND 29),
- classified_misses integer NOT NULL DEFAULT 0 CHECK(classified_misses BETWEEN 0 AND 49),
+ legendary_misses integer NOT NULL DEFAULT 0 CHECK(legendary_misses BETWEEN 0 AND 49),
+ classified_misses integer NOT NULL DEFAULT 0 CHECK(classified_misses>=0),
  updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS class7_test.photo_draw_requests(
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS class7_test.photo_draw_requests(
 REVOKE ALL ON class7_test.photo_draw_state,class7_test.photo_draw_requests FROM PUBLIC,anon,authenticated,service_role;
 GRANT SELECT ON class7_test.photo_draw_state,class7_test.photo_draw_requests TO service_role;
 ALTER TABLE class7_test.mall_photo_inventory DROP CONSTRAINT IF EXISTS mall_photo_inventory_price_check;
-ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN(9,10,20,30,40,80));
+ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN(0,9,10,20,30,40,80));
 
 CREATE OR REPLACE FUNCTION class7_test.draw_photos(p_account text,p_count integer,p_request uuid,p_expected_cost integer) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,class7_test AS $$
@@ -48,17 +48,14 @@ BEGIN
   SELECT class7_test.canonical_owner(a.owner_hash),COALESCE(NULLIF(p.nickname,''),a.username) INTO buyer_hash,buyer_name
    FROM class7_test.accounts a LEFT JOIN class7_test.profiles p ON p.device_hash=class7_test.canonical_owner(a.owner_hash) WHERE a.id=p_account;
   FOR n IN 1..p_count LOOP
-   guaranteed:=CASE WHEN state.classified_misses>=49 THEN 'classified' WHEN state.legendary_misses>=29 THEN 'legendary' ELSE NULL END;
+   guaranteed:=CASE WHEN state.legendary_misses>=49 THEN 'legendary' ELSE NULL END;
    LOOP
     SELECT array_agg(p.id) FILTER(WHERE COALESCE(r.rarity,'common')='common'),array_agg(p.id) FILTER(WHERE r.rarity='epic'),
      array_agg(p.id) FILTER(WHERE r.rarity='legendary'),array_agg(p.id) FILTER(WHERE r.rarity='classified') INTO c,e,l,s
     FROM class7_test.photos p LEFT JOIN class7_test.photo_rarities r ON r.photo_id=p.id
     WHERE NOT EXISTS(SELECT 1 FROM class7_test.mall_photo_inventory i WHERE i.account_id=p_account AND i.photo_id=p.id)
      AND (COALESCE(r.rarity,'common')<>'classified' OR class7_test.photo_in_vault(p.id));
-    IF guaranteed='classified' THEN
-     IF COALESCE(cardinality(s),0)=0 THEN RAISE EXCEPTION USING ERRCODE='P7001',MESSAGE='classified_empty'; END IF;
-     selected:=s[1+floor(random()*cardinality(s))::integer];
-    ELSIF guaranteed='legendary' THEN
+    IF guaranteed='legendary' THEN
      IF COALESCE(cardinality(l),0)+COALESCE(cardinality(s),0)=0 THEN RAISE EXCEPTION USING ERRCODE='P7001',MESSAGE='legendary_empty'; END IF;
      selected:=(class7_test.draw_photo_pool('{}','{}',l,s,1))[1];
     ELSE

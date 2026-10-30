@@ -1,3 +1,7 @@
+# 当前部署入口（2026-10-30）
+
+当前更新仅代码和游戏，无新增 SQL 迁移。完整安装见 [INSTALL.md](../INSTALL.md)，游戏部署与限制见 [DUNGEON.md](DUNGEON.md)。下面为历次迁移的历史参考，旧节中的概率、价格、保底及测试环境描述不能覆盖 AI_HANDOFF.md 当前规则；已有环境不要照顺序重跑全部历史迁移。当前总体套餐为个人版，超额计费已关闭，计费有效期以控制台为准。
+
 # 构建与 CloudBase 部署
 
 ## 1. 安装并构建
@@ -141,3 +145,43 @@ npx tcb fn deploy class7-photo-api --httpFn --force --install-dependency true --
 ### 2026-10-21 抽卡与双保底
 
 在已有环境最后运行node scripts/apply-photo-draw.cjs，再构建并部署静态与HTTP函数；不重跑完整schema。此迁移保留原账号/照片/积分/库存，并新增仅服务端可写的保底与幂等请求表。十连库存记账允许9积分，不恢复旧价格约束。单抽10/十连90，30抽传奇及以上/50抽保密，单抽十连共用跨天计数；提前抽到重置对应计数，空池整次回滚。隔离验证verify-photo-draw-db、只读线上verify-photo-draw-live及verify-collection-live；不要代真实用户抽卡或花费积分。
+
+
+### 2026-10-21 保密概率0.5%、40/60保底与一次性补偿
+
+已有环境最后运行node scripts/apply-card-rebalance.cjs，保留原抽数，权重169/20/10/1（84.5/10/5/0.5），放宽保底计数约束至39/59并更新抽卡函数，库存price=0用于管理员赠品。构建部署后核对verify-photo-draw-live和verify-collection-live。compensate-classified是独立的真实数据操作，必须取得站主明确授权后指定固定campaign和既有管理员保管账号；不能自动随升级执行，也不能用新campaign重跑本次补偿。已完成活动的真实身份与备份仅保存在私有操作审计及.private，源码包不含名单。
+
+
+### 2026-10-21 史诗与传奇基础概率各减半
+
+已有环境仅运行node scripts/apply-card-drop-rates.cjs，更新共享函数为184/10/5/1（普通92%、史诗5%、传奇2.5%、保密0.5%）；已有抽数/库存/积分和40/60保底不变，不运行补偿。完整schema和vault/rebalance也同步新权重。构建后部署静态与HTTP函数并运行verify-photo-draw-live和verify-collection-live。概率用verify-card-drop-rates在隔离函数schema抽样验证，真实业务记录不用于测试。今日已经生成的商城货架不重抽。
+
+
+### 2026-10-21 保底50/100
+
+已有环境仅运行node scripts/apply-draw-pity.cjs，约束放宽到49/99并更新抽卡函数；保留所有现有抽数、库存、积分和请求记录，不运行补偿。基础概率92/5/2.5/0.5、单抽10/十连90、提前出卡重置均保留。构建并部署静态/HTTP后，运行verify-photo-draw-live与verify-collection-live核对配置和资产；verify-photo-draw-db仅用隔离合成账号测试边界及失败回滚，不代真实用户抽卡。
+
+
+### 最终有效升级：95.95/3/1/0.05，无保密保底（2026-10-21）
+
+已有环境最后运行 `node scripts/apply-card-rules.cjs`，使用card-rules.sql合并共享权重1919/60/20/1、仅50抽传奇及以上保底、1张保密成就。保留全部原抽数、历史请求和业务数据；classified_misses仅要求非负，不保留旧99/199上限。不重跑schema，不用旧SQL覆盖最终规则。构建并同步部署静态和HTTP函数，运行verify-photo-draw-live及verify-collection-live核对配置与资产。数量称号30/60/90在前端；其余三种等级成就集齐，黑暗往事1张保密，已有持久成就不撤回。
+
+`recall-classified.sql` / `scripts/recall-classified.cjs` 是独立的站主真实数据操作工具，绝不能随安装、迁移或部署自动执行。本环境已完成活动 `classified-recall-20261021-810-001`：撤回3张、涉及2账号，每账号810积分、无赠卡，原文件保留。相同campaign幂等，但换campaign会形成新活动，必须另获站主明确授权；其他环境不能沿用此任务的授权。备份和身份只在私有数据库/.private，不进源码包。
+
+验证脚本依赖开发环境相邻cloudbase-tools SDK；单独ZIP需要自行安装并配置官方CLI和被授权环境，不能复制他人凭证。具体测试和发布证据见AI_HANDOFF最新记录；代码ZIP不是照片/数据库备份。
+
+
+### 抽卡相机屏幕演出（2026-10-21）
+
+本轮仅前端与构建接线，无SQL迁移。不要为部署演出重跑旧card/vault/draw迁移或任何真实补偿。新增src/draw-cinema三文件，通过build.cjs注入覆盖层和代码，在当前draw-ui成功结果后等待演出；仍在抽卡页才播放，关闭/换账号/页面隐藏取消，减少动态效果跳过。保留当前95.95/3/1/0.05概率、50传奇/无保密保底、30/60/90数量称号及1张保密成就和上传者分页修复。
+
+构建与check后运行npm run check:draw-cinema，原开场变动或交互相关时核对check:camera。合成draw-qa验证十连手动翻到10/10、单抽点击完成、重复点击与模糊响应重试、积分与库存同步；真实用户积分不能用于测试。同步发布静态和HTTP函数后，verify-photo-draw-live核对新动画标记及原配置、verify-collection-live核对线上HTML/JS/CSS哈希及权限。
+
+
+### 最新升级：周榜与收藏积分奖励（2026-10-21）
+
+已有环境在当前卡牌/私密榜单规则之后手动执行 `node scripts/apply-automatic-rewards.cjs`，只安装结构并校验原业务数据指纹。再build/check并同步静态与HTTP；不要重跑完整schema，不要重跑任何回收或手动发积分活动。新schema已包含奖励结构。此SQL首次捕获原函数为*_without_rewards，之后修改旧函数须同步捕获实现并保留外层奖励；不能让旧迁移覆盖购买/抽卡/榜单包装层。
+
+`node scripts/verify-automatic-rewards-db.cjs`使用临时隔离schema和合成账户验证边界/并发/回滚，依赖本机已授权SDK；并运行原抽卡回归。`verify-automatic-rewards-live.cjs`是原站发布验收，私有回执不随包提供，不能在他人环境照抄。原站已给9账号补620积分，活动collection-rewards-backfill-20261021-001仅一次。`backfill-collection-rewards.cjs`是独立真实数据操作，绝不能自动随安装/构建/部署执行；换环境/活动必须另获站主授权。正常登录/购买/抽卡自动补齐每20张档位，不依赖批量补发脚本。
+
+每榜同一关联身份90积分，双榜180；从安装周启用，最早下一周一访问时按最终前三结算，不追补更早历史。库存奖励按实际登录账号独立，每20张不同库存照片20积分，每档永久一次，上传不算。当前原站首次启用周2026-10-19，最早2026-10-26结算，未访问不承诺整点入账。

@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><title>手机照片与说明同屏验证</title>
+<style>body{margin:18px;font:14px system-ui;background:#eee}h1{font-size:20px}iframe{width:390px;height:844px;border:1px solid #aaa;background:white}button{padding:8px 15px}pre{white-space:pre-wrap}section{display:flex;gap:20px;align-items:flex-start}aside{max-width:720px}</style>
+<h1>手机照片与说明同屏验证 · 仅本机合成照片</h1><button id="run">验证各尺寸及长说明</button><span id="status">等待验证</span>
+<section><iframe id="preview" src="/album/"></iframe><aside><pre id="results"></pre></aside></section>
+<script>
+const frame=document.getElementById('preview'),delay=ms=>new Promise(r=>setTimeout(r,ms));
+function doc(){return frame.contentDocument;}
+async function waitFor(check){for(let i=0;i<50;i++){if(check())return;await delay(100);}throw Error('Layout did not settle');}
+async function size(width,height){frame.style.width=width+'px';frame.style.height=height+'px';await waitFor(()=>frame.contentWindow.innerWidth===width);await delay(250);}
+function inspect(){const d=doc(),win=frame.contentWindow,dialog=d.getElementById('lightbox'),caption=d.getElementById('lightbox-caption'),title=d.getElementById('lightbox-title'),photo=d.getElementById('lightbox-image-stage');const rect=e=>{const r=e.getBoundingClientRect();return {top:Math.round(r.top),bottom:Math.round(r.bottom),height:Math.round(r.height)};};const visible=e=>e.getBoundingClientRect().top>=0&&e.getBoundingClientRect().bottom<=win.innerHeight;
+ return {width:win.innerWidth,height:win.innerHeight,title:rect(title),caption:rect(caption),photo:rect(photo),photoAndStoryVisible:visible(photo)&&visible(title)&&visible(caption),dialogScrollTop:dialog.scrollTop,internalBodyScroll:getComputedStyle(d.querySelector('.lightbox-body')).overflowY,metadataOpen:d.getElementById('photo-extra-info').open,expandVisible:!d.getElementById('caption-expand').hidden,horizontalOverflow:dialog.scrollWidth>dialog.clientWidth+1,commentsAvailable:!!d.getElementById('comment-form')};}
+document.getElementById('run').onclick=async()=>{document.getElementById('status').textContent='验证中…';try{
+ await waitFor(()=>doc().querySelector('.photo-card'));
+ const info=doc().getElementById('info-dialog');if(info.open)info.querySelector('[data-close-dialog]').click();
+ if(doc().getElementById('lightbox').open)doc().querySelector('[data-close-dialog="lightbox"]').click();
+ await size(390,844);doc().querySelector('[data-photo-id="local-ui-0"]').click();await waitFor(()=>doc().getElementById('lightbox').open);await delay(200);const phone=inspect();
+ await size(320,568);const small=inspect();
+ doc().querySelector('[data-close-dialog="lightbox"]').click();doc().querySelector('[data-photo-id="local-ui-1"]').click();await delay(200);const long=inspect();
+ doc().getElementById('caption-expand').click();await delay(100);const expanded=doc().getElementById('caption-expand').getAttribute('aria-expanded')==='true'&&!doc().getElementById('lightbox-caption').classList.contains('caption-collapsed');
+ doc().getElementById('caption-expand').click();doc().querySelector('#photo-extra-info>summary').click();const metadataAccessible=doc().getElementById('photo-extra-info').open;
+ doc().querySelector('[data-close-dialog="lightbox"]').click();doc().querySelector('[data-photo-id="local-ui-0"]').click();await delay(100);const reopened=inspect();
+ await size(1300,800);const desktop=inspect();
+ await size(390,844);const result={phone,small,long,longCaptionExpandable:expanded,metadataAccessible,reopenStartsAtTop:reopened.dialogScrollTop===0,desktopDetailsOpen:desktop.metadataOpen,passed:[phone,small,long].every(r=>r.photoAndStoryVisible&&!r.horizontalOverflow&&r.internalBodyScroll==='visible')&&expanded&&metadataAccessible&&reopened.dialogScrollTop===0&&desktop.metadataOpen};
+ document.getElementById('results').textContent=JSON.stringify(result,null,2);document.getElementById('status').textContent=result.passed?'PASS':'FAIL';
+ }catch(e){document.getElementById('status').textContent='FAIL';document.getElementById('results').textContent=e.stack;}};
+</script>

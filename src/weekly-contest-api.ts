@@ -7,7 +7,7 @@ async function weeklyContestPhotos(request:Request,url:URL){
  }
  const owner=await ownerHash(request),result=await database().batch([
   database().prepare('SELECT class7_test.weekly_contest_page(?,?::jsonb) AS contest').bind(period,cursor?JSON.stringify(cursor):null),
-  database().prepare('SELECT count(*) AS n FROM photos WHERE class7_test.canonical_owner(owner_hash)=?').bind(owner||'')
+  database().prepare('SELECT count(*) AS n FROM photos WHERE class7_test.canonical_owner(owner_hash)=? AND NOT class7_test.photo_is_classified(id)').bind(owner||'')
  ]);
  let contest=result[0].results[0]?.contest;if(typeof contest==='string')contest=JSON.parse(contest);
  if(!contest)throw new ApiError(503,'每周大赛暂时无法读取，请稍后刷新。');
@@ -18,7 +18,7 @@ async function weeklyContestPhotos(request:Request,url:URL){
   FROM jsonb_to_recordset(?::jsonb) AS score(photo_id text,weekly_votes bigint,total_votes bigint,rank bigint)
   JOIN photos p ON p.id=score.photo_id
   LEFT JOIN (SELECT photo_id,count(DISTINCT (class7_test.canonical_owner(owner_hash),week_start)) AS like_count,bool_or(week_start=class7_test.contest_week_start(clock_timestamp()) AND class7_test.canonical_owner(owner_hash)=?) AS liked FROM photo_likes GROUP BY photo_id) v ON v.photo_id=p.id
-  ORDER BY score.rank`).bind(JSON.stringify(entries),owner||'').all();rows=page.results;}
+  WHERE NOT class7_test.photo_is_classified(p.id) ORDER BY score.rank`).bind(JSON.stringify(entries),owner||'').all();rows=page.results;}
  const {entries:_privateEntries,week,...meta}=contest;
  return response({photos:await Promise.all(rows.map(async row=>({...await photoView(row,owner),rank:Number(row.rank),weeklyCount:Number(row.weekly_votes)}))),
   total:Number(contest.total),ownedTotal:Number(result[1].results[0]?.n)||0,uploaders:[],

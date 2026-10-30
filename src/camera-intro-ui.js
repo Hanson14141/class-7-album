@@ -95,3 +95,4 @@ const cameraDialogHook=showDialog;showDialog=function(id){if(id!=='camera-intro'
 document.addEventListener('close',()=>{if(cameraIntroPhase==='done')showInitialUsageNotice();},true);
 reducedMotion.addEventListener('change',event=>{if(event.matches&&cameraIntroPhase==='leaving')completeCameraIntro();});
 setupCameraIntro();
+

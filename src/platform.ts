@@ -37,18 +37,34 @@ const objectPath=(key:string)=>'/v1/storages/object/'+encodeURIComponent(process
 function storageHeaders(extra:Record<string,string>={}){if(!process.env.CLASS7_STORAGE_KEY)throw Error('Storage configuration missing');return {Authorization:'Bearer '+process.env.CLASS7_STORAGE_KEY,...extra};}
 async function storageRequest(key:string,init:RequestInit={}){return fetch(storageOrigin()+objectPath(key),{...init,headers:storageHeaders(init.headers as Record<string,string>||{}),signal:AbortSignal.timeout(60000)});}
 const signedCache=new Map<string,{url:string,until:number}>();
-async function signedObjectUrl(key:string,upload=false){
-  const cached=signedCache.get(key);if(!upload&&cached&&cached.until>Date.now())return cached.url;
+const pendingSigns=new Map<string,Promise<string>>(),signWaiters:Array<()=>void>=[];let activeSigns=0;
+function cachedObjectUrl(key:string){
+ const cached=signedCache.get(key);if(!cached)return null;
+ if(cached.until<=Date.now()){signedCache.delete(key);return null;}
+ signedCache.delete(key);signedCache.set(key,cached);return cached.url;
+}
+async function signingSlot<T>(operation:()=>Promise<T>):Promise<T>{
+ if(activeSigns<3)activeSigns++;else await new Promise<void>(resolve=>signWaiters.push(resolve));
+ try{return await operation();}finally{const next=signWaiters.shift();if(next)next();else activeSigns--;}
+}
+async function signedObjectUrl(key:string,upload=false):Promise<string>{
+ const cached=upload?null:cachedObjectUrl(key);if(cached)return cached;
+ const operationKey=(upload?'upload:':'read:')+key,existing=pendingSigns.get(operationKey);if(existing)return existing;
+ const work=signingSlot(async()=>{
   const endpoint=objectPath(key).replace('/object/','/object/'+(upload?'upload/sign/':'sign/'));
-  const result=await fetch(storageOrigin()+endpoint,{method:'POST',headers:storageHeaders({'Content-Type':'application/json','x-upsert':'false'}),body:JSON.stringify({expiresIn:3600}),signal:AbortSignal.timeout(15000)});
-  if(!result.ok)throw Error('Storage signing HTTP '+result.status);
-  const data=await result.json();const value=upload?(data.fullURL||data.url):(data.fullSignedURL||data.signedURL);
-  if(typeof value!=='string')throw Error('Missing signed object URL');
-  const url=new URL(value,storageOrigin());if(url.origin!==storageOrigin())throw Error('Unexpected storage host');
-  if(!upload){if(signedCache.size>500)signedCache.clear();signedCache.set(key,{url:url.href,until:Date.now()+50*60000});}
-  return url.href;
+  for(let attempt=0;;attempt++){
+   const result=await fetch(storageOrigin()+endpoint,{method:'POST',headers:storageHeaders({'Content-Type':'application/json','x-upsert':'false'}),body:JSON.stringify({expiresIn:3600}),signal:AbortSignal.timeout(10000)});
+   if(!result.ok){const retryable=result.status===429||[500,502,503,504].includes(result.status);await result.body?.cancel();if(retryable&&attempt<2){await new Promise(resolve=>setTimeout(resolve,350*(attempt+1)));continue;}throw Error('Storage signing HTTP '+result.status);}
+   const data=await result.json();const value=upload?(data.fullURL||data.url):(data.fullSignedURL||data.signedURL);
+   if(typeof value!=='string')throw Error('Missing signed object URL');
+   const url=new URL(value,storageOrigin());if(url.origin!==storageOrigin())throw Error('Unexpected storage host');
+   if(!upload){signedCache.set(key,{url:url.href,until:Date.now()+50*60000});while(signedCache.size>800)signedCache.delete(signedCache.keys().next().value!);}
+   return url.href;
+  }
+ }).finally(()=>pendingSigns.delete(operationKey));pendingSigns.set(operationKey,work);return work;
 }
 export const env={DB:new Database(),BUCKET:{
+  cachedUrl:cachedObjectUrl,
   signedUrl:(key:string)=>signedObjectUrl(key),
   signUpload:(key:string)=>signedObjectUrl(key,true),
   async head(key:string){const result=await storageRequest(key,{method:'HEAD'});if(result.status===404)return null;if(!result.ok)throw Error('Storage metadata HTTP '+result.status);return {size:Number(result.headers.get('Content-Length')),mime:result.headers.get('Content-Type')?.split(';')[0]};},

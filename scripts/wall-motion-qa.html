@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>照片墙滚动对比验证 · 本机合成图</title>
+<style>body{margin:20px;font:14px system-ui;background:#eee;color:#111}h1{font-size:20px}button{padding:10px 18px;margin:0 10px 12px 0}section{display:flex;gap:16px}iframe{width:760px;height:480px;border:1px solid #aaa}h2{font-size:14px}pre{white-space:pre-wrap;background:#fff;padding:15px;max-width:1520px}p{max-width:1100px}</style>
+<h1>照片墙滚动对比验证</h1><p>同一批48张本机合成图。对比自动滚动期间主线程写入位置的次数，并验证暂停、3倍流速及图片节点保留。帧间隔仅反映此设备的刷新机会，不代表已验证120Hz显示器。</p>
+<button id="run">运行对比与功能验证</button><span id="status">等待运行</span>
+<section><div><h2>优化前</h2><iframe id="before" src="/album/?before=1&motionQA=1"></iframe></div><div><h2>优化后</h2><iframe id="after" src="/album/?motionQA=1"></iframe></div></section>
+<pre id="results">仅本机测试，不上传或更改云端照片。</pre>
+<script>
+const frames=['before','after'].map(id=>document.getElementById(id));
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function playing(frame,wanted){const view=frame.contentDocument.getElementById('wall-view-toggle');if(view?.getAttribute('aria-pressed')==='true')view.click();const b=frame.contentDocument.getElementById('motion-button');if(b.getAttribute('aria-pressed')!==String(wanted))b.click();}
+function y(frame){const el=frame.contentDocument.querySelector('.photo-lane');return new DOMMatrixReadOnly(frame.contentWindow.getComputedStyle(el).transform).m42;}
+async function sample(frame){
+ const speed=frame.contentDocument.getElementById('wall-speed');speed.value='1';speed.dispatchEvent(new Event('change',{bubbles:true}));playing(frame,true);await delay(250);const lanes=frame.contentDocument.querySelectorAll('.photo-lane');let writes=0;const observer=new MutationObserver(records=>writes+=records.length);for(const el of lanes)observer.observe(el,{attributes:true,attributeFilter:['style']});
+ const firstY=y(frame),deltas=[];let last=0;const started=performance.now();await new Promise(resolve=>{function tick(t){if(last)deltas.push(t-last);last=t;if(t-started<2000)requestAnimationFrame(tick);else resolve();}requestAnimationFrame(tick)});observer.disconnect();
+ const movement=Math.abs(y(frame)-firstY),animations=[...lanes].flatMap(el=>el.getAnimations());playing(frame,false);deltas.sort((a,b)=>a-b);return {laneStyleWrites:writes,movedPixels:Math.round(movement*100)/100,compositorAnimations:animations.length,medianFrameOpportunityMs:Math.round(deltas[Math.floor(deltas.length/2)]*100)/100};
+}
+document.getElementById('run').onclick=async()=>{
+ const button=document.getElementById('run');button.disabled=true;document.getElementById('status').textContent='验证中…';
+ try{
+  for(let n=0;n<100&&frames.some(f=>!f.contentDocument.querySelector('.photo-card'));n++)await delay(50);
+  for(const frame of frames)playing(frame,false);
+  const before=await sample(frames[0]),after=await sample(frames[1]),frame=frames[1];
+  const first=y(frame);await delay(150);const pauseStable=Math.abs(y(frame)-first)<.05;
+  const select=frame.contentDocument.getElementById('wall-speed');select.value='3';select.dispatchEvent(new Event('change',{bubbles:true}));playing(frame,true);await delay(150);
+  const rates=[...frame.contentDocument.querySelectorAll('.photo-lane')].flatMap(el=>el.getAnimations().map(a=>a.playbackRate));
+  const layout=await frame.contentWindow.runWallLayoutCheck();
+  const result={before,after,pauseStable,speed3Applied:rates.length===3&&rates.every(rate=>rate===3),...layout,syntheticPhotoCount:48};
+  result.passed=before.movedPixels>1&&after.movedPixels>1&&after.laneStyleWrites<before.laneStyleWrites/10&&after.compositorAnimations===3&&pauseStable&&result.speed3Applied&&layout.samePhotoNodePreserved;
+  document.getElementById('results').textContent=JSON.stringify(result,null,2);document.getElementById('status').textContent=result.passed?'PASS：验证通过':'FAIL：请检查结果';
+ }catch(error){document.getElementById('status').textContent='FAIL';document.getElementById('results').textContent=error.message;}
+ finally{button.disabled=false;}
+};
+</script>

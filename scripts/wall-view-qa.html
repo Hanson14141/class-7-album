@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>完整瀑布流验证 · 本机合成照片</title>
+<style>body{font:14px system-ui;margin:16px;background:#eee}iframe{height:760px;border:1px solid #aaa;width:1300px;background:white}button{padding:9px 18px}pre{white-space:pre-wrap}h1{font-size:20px}</style>
+<h1>完整瀑布流与手机布局验证</h1><button id="run">验证四列、三列与手机版</button><span id="status">等待验证</span><pre id="results"></pre><iframe id="preview" src="/album/"></iframe>
+<script>
+const frame=document.getElementById('preview'),delay=ms=>new Promise(r=>setTimeout(r,ms));
+async function settled(width,columns){frame.style.width=width+'px';for(let n=0;n<50;n++){await delay(100);const state=inspect();if(state.width===width&&state.columns===columns&&(width<701||state.naturalAspect))return;}throw Error('Responsive layout did not settle at '+width);}
+function complete(){const toggle=frame.contentDocument.getElementById('wall-view-toggle');if(toggle?.getAttribute('aria-pressed')!=='true')toggle.click();}
+function inspect(){const doc=frame.contentDocument,wall=doc.getElementById('photo-wall'),shell=wall.parentElement,cards=[...wall.querySelectorAll('.photo-card')],win=frame.contentWindow;
+ return {width:win.innerWidth,columns:wall.querySelectorAll('.photo-lane').length,cards:cards.length,uniquePhotos:new Set(cards.map(c=>c.dataset.photoId)).size,complete:shell.classList.contains('complete-wall'),wallHeight:Math.round(wall.getBoundingClientRect().height),noClipping:win.getComputedStyle(wall).overflowY==='visible'&&win.getComputedStyle(shell).overflow==='visible',naturalAspect:cards.every(c=>{const img=c.querySelector('img');return Math.abs(c.clientHeight-c.clientWidth/(Number(img.width)/Number(img.height)))<2;}),noHorizontalOverflow:doc.documentElement.scrollWidth<=win.innerWidth,loadedImages:cards.filter(c=>c.querySelector('img').hasAttribute('src')).length,toggleVisible:win.getComputedStyle(doc.getElementById('wall-view-toggle')).display!=='none'};
+}
+document.getElementById('run').onclick=async()=>{try{
+ document.getElementById('status').textContent='验证中…';
+ for(let n=0;n<100&&!frame.contentDocument.querySelector('.photo-card');n++)await delay(50);
+ complete();await settled(1300,4);const desktop=inspect();
+ await settled(900,3);const narrow=inspect();
+ await settled(390,3);const phone=inspect();
+ await settled(1300,4);complete();await delay(200);
+ const toggle=frame.contentDocument.getElementById('wall-view-toggle');toggle.click();await delay(150);const flow=inspect();toggle.click();await delay(150);
+ const result={desktop,narrow,phone,flowRestored:!flow.complete&&flow.cards===96,passed:desktop.columns===4&&narrow.columns===3&&desktop.cards===48&&desktop.noClipping&&desktop.naturalAspect&&desktop.noHorizontalOverflow&&narrow.noHorizontalOverflow&&phone.columns===3&&!phone.complete&&!phone.toggleVisible&&phone.noHorizontalOverflow&&!flow.complete&&flow.cards===96};
+ document.getElementById('results').textContent=JSON.stringify(result,null,2);document.getElementById('status').textContent=result.passed?'PASS':'FAIL';
+ }catch(e){document.getElementById('status').textContent='FAIL';document.getElementById('results').textContent=e.stack;}};
+</script>

@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>照片总数与分页验证</title>
+<style>body{margin:16px;font:14px system-ui;background:#eee}h1{font-size:20px}button{padding:8px 15px}iframe{width:1300px;height:700px;border:1px solid #aaa}pre{white-space:pre-wrap}</style>
+<script>sessionStorage.setItem("class7-camera-entered","1");localStorage.setItem("class7-usage-notice-seen","1");</script>
+<h1>照片总数与分页验证 · 367 张本机合成照片</h1><button id="run">验证分页、筛选和个人总数</button><span id="status">等待验证</span><pre id="results"></pre><iframe id="preview" src="/album/"></iframe>
+<script>
+const frame=document.getElementById('preview'),delay=ms=>new Promise(r=>setTimeout(r,ms)),d=()=>frame.contentDocument;
+async function waitFor(check){for(let i=0;i<80;i++){if(check())return;await delay(100);}throw Error('Pagination UI did not settle');}
+function total(){return Number(d().getElementById('photo-count').textContent);}
+function cards(){return d().querySelectorAll('.photo-card:not([aria-hidden])').length;}
+document.getElementById('run').onclick=async()=>{try{
+ document.getElementById('status').textContent='验证中…';const notice=d().getElementById('info-dialog');if(notice?.open)notice.querySelector('[data-close-dialog]').click();await waitFor(()=>total()===367&&cards()===100);
+ const first={total:total(),loaded:cards(),mineBadge:Number(d().getElementById('my-count').textContent),more:d().getElementById('load-more-photos').textContent};
+ d().getElementById('load-more-photos').click();await waitFor(()=>cards()===200);const second={total:total(),loaded:cards()};
+ const filter=d().getElementById('uploader-filter');filter.value='后续同学';filter.dispatchEvent(new Event('change',{bubbles:true}));await waitFor(()=>total()===164&&cards()===164);const filtered={total:total(),loaded:cards()};
+ filter.value='';filter.dispatchEvent(new Event('change',{bubbles:true}));
+ d().querySelector('[data-view="mine"]').click();await waitFor(()=>total()===123&&cards()===123&&!d().getElementById('load-more-photos').hidden&&!d().getElementById('load-more-photos').disabled);const mine={total:total(),loaded:cards()};
+ d().getElementById('load-more-photos').click();await waitFor(()=>cards()===123&&d().getElementById('load-more-photos').hidden);const mineAfter={total:total(),loaded:cards()};
+ d().querySelector('[data-view="all"]').click();await waitFor(()=>total()===367);
+ const result={first,second,filtered,mine,mineAfter,passed:first.mineBadge===123&&first.total===367&&first.loaded===100&&second.total===367&&second.loaded===200&&filtered.total===164&&filtered.loaded===164&&mine.total===123&&mineAfter.loaded===123&&mineAfter.total===123};
+ document.getElementById('results').textContent=JSON.stringify(result,null,2);document.getElementById('status').textContent=result.passed?'PASS':'FAIL';
+ }catch(e){document.getElementById('status').textContent='FAIL';document.getElementById('results').textContent=e.stack;}};
+</script>

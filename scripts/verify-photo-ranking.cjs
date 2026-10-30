@@ -1,0 +1,18 @@
+// Read-only production verification. Does not create or modify votes/photos.
+const fs=require('node:fs'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const base='https://class7-memory-d0gcpjaqu47530c54-1509361747.ap-shanghai.app.tcloudbase.com/api/';
+const timings=[];let retries=0;
+async function read(route,expected=200){for(let i=0;;i++){const start=Date.now(),r=await fetch(base+route,{signal:AbortSignal.timeout(45000)});if((r.status===429||r.status>=500)&&i<4){retries++;await r.body?.cancel();await new Promise(resolve=>setTimeout(resolve,700*2**i));continue;}assert.equal(r.status,expected,'HTTP '+r.status+' '+route.split('?')[0]);timings.push({route:route.split('?')[0],ms:Date.now()-start});return r;}}
+async function get(route,expected){return(await read(route,expected)).json();}
+const compare=(a,b)=>b.likeCount-a.likeCount||b.createdAt.localeCompare(a.createdAt)||b.id.localeCompare(a.id);
+(async()=>{
+ const first=await get('photos?sort=likes');let page=first,all=[],pages=0,cursors=new Set();do{assert(page.photos.length<=100);all.push(...page.photos);pages++;if(!page.nextCursor)break;assert(!cursors.has(page.nextCursor));cursors.add(page.nextCursor);assert(pages<100);page=await get('photos?sort=likes&cursor='+encodeURIComponent(page.nextCursor));}while(true);
+ assert.equal(new Set(all.map(p=>p.id)).size,all.length);assert(all.every((p,i)=>p.rank===i+1));assert(all.slice(1).every((p,i)=>compare(all[i],p)<=0));assert.equal(all.length,first.total);
+ const latest=await get('photos?sort=likes');const votesStable=latest.photos.every((p,i)=>p.id===first.photos[i]?.id&&p.likeCount===first.photos[i]?.likeCount);assert(votesStable,'Votes changed while verifying; rerun after uploads/votes settle');
+ const uploader=first.uploaders.slice().sort((a,b)=>b.total-a.total)[0];if(uploader){const filtered=await get('photos?sort=likes&uploader='+encodeURIComponent(uploader.uploader));assert(filtered.photos.every(p=>p.uploader===uploader.uploader));assert.equal(filtered.photos[0]?.rank,1);assert.equal(filtered.uploaders.find(x=>x.uploader===uploader.uploader).total,uploader.total);if(filtered.nextCursor){const second=await get('photos?sort=likes&uploader='+encodeURIComponent(uploader.uploader)+'&cursor='+encodeURIComponent(filtered.nextCursor));assert.equal(second.photos[0].rank,101);}}
+ await get('photos?sort=likes&cursor=invalid',400);const mine=await get('photos?sort=likes&mine=1');assert.equal(mine.total,0);assert.equal(mine.photos.length,0);
+ const normal=await get('photos');assert.equal(normal.total,first.total);assert(!normal.photos[0]?.rank);const hashes={};const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
+ const html=await(await read('')).text();assert.equal(sha(html),sha(fs.readFileSync('public/index.html')));hashes.html=true;
+ for(const name of ['app.js','editorial.css']){const url=html.match(new RegExp('https://[^" ]+/'+name.replace('.','\\.')+'\\?v=[^" ]+'))?.[0];assert(url);const r=await fetch(url,{signal:AbortSignal.timeout(45000)});assert.equal(r.status,200);assert.equal(sha(Buffer.from(await r.arrayBuffer())),sha(fs.readFileSync('public/'+name)));hashes[name]=true;}
+ const report={checkedAt:new Date().toISOString(),total:first.total,pages,pageSize:first.photos.length,globalDescending:true,allPhotosCovered:true,rankNumbersConsecutive:true,uploaderFilter:true,anonymousMineEmpty:true,invalidCursorRejected:true,randomModeUnchanged:true,liveAssetsMatch:hashes,timings,retries,cloudDataWritten:false,passed:true};fs.writeFileSync('deployment-photo-ranking-verified.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
+})().catch(error=>{console.error(error.message);process.exitCode=1;});

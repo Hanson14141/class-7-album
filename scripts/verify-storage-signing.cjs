@@ -1,6 +1,6 @@
 // Deterministic fake gateway only; no real photos, credentials or cloud calls.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
-const esbuild=require(require.resolve('esbuild',{paths:[process.cwd(),path.join(__dirname,'../../cloudbase-tools')]}));
+const esbuild=require('esbuild');
 (async()=>{
  let active=0,peak=0,now=1000;const calls=new Map(),delays=[];
  class Clock extends Date{static now(){return now;}}

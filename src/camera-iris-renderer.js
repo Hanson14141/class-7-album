@@ -104,3 +104,4 @@ function createCameraIrisRenderer(original,matte,geometry){
   destroy(){stopped=true;cancelAnimationFrame(raf);worker?.terminate();if(blobUrl)URL.revokeObjectURL(blobUrl);finishResolve?.();finishResolve=null;}
  };
 }
+

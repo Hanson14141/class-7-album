@@ -28,6 +28,16 @@ async function reloadPhotoOrder(){
  catch(error){if(epoch===photoOrderEpoch){$('#gallery-error').textContent=error.message||'排行加载失败，请刷新重试。';$('#gallery-error').hidden=false;}}
  finally{if(epoch===photoOrderEpoch)$('#photo-order').removeAttribute('aria-busy');}
 }
-async function changePhotoFilter(value){app.filter=value;if(rankingActive())await reloadPhotoOrder();else{refreshFilter();renderWall();try{for(let p,c;value&&!rankingActive()&&app.filter===value&&(c=app.view==='mine'?app.mineCursor:app.nextCursor)&&c!==p;p=c)await loadCloud(true);}catch(error){toast(error.message);}}}
+let uploaderFilterEpoch=0;
+async function changePhotoFilter(value){
+ const epoch=++uploaderFilterEpoch;app.filter=value;
+ if(rankingActive()){await reloadPhotoOrder();return;}
+ refreshFilter();renderWall();
+ if(!value)return;
+ const view=app.view,generation=ownershipGeneration,orderEpoch=photoOrderEpoch,pageKey=view==='mine'?'mine':'all',pageVersion=photoPageVersions[pageKey],seen=new Set();
+ const current=()=>epoch===uploaderFilterEpoch&&generation===ownershipGeneration&&orderEpoch===photoOrderEpoch&&pageVersion===photoPageVersions[pageKey]&&app.view===view&&app.filter===value&&!rankingActive();
+ try{while(current()){const cursor=view==='mine'?app.mineCursor:app.nextCursor;if(!cursor||seen.has(cursor))break;seen.add(cursor);await loadCloud(true,view==='mine');}}
+ catch(error){if(current())toast(error.message);}
+}
 $('#photo-order').addEventListener('change',async event=>{photoOrder=['likes','weekly'].includes(event.target.value)?event.target.value:'random';if(photoOrder==='weekly'){app.view='all';app.filter='';contestPeriod='current';}safeWrite('class7-photo-order',photoOrder);await reloadPhotoOrder();});
 updatePhotoOrderUI();

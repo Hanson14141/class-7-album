@@ -146,7 +146,7 @@ browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(ro
 browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/photo-manager-ui.js'),'utf8')+'\ninit();');
 browserApp=browserApp.replace('return data;}', 'if(data.points&&requestGeneration===ownershipGeneration)document.dispatchEvent(new CustomEvent("class7:points",{detail:data.points}));return data;}');
 browserApp=browserApp.replace('return !app.mallOpen&&!app.commentBoardOpen&&app.playing','return !app.drawOpen&&!app.mallOpen&&!app.commentBoardOpen&&app.playing');
-browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/draw-ui.js'),'utf8')+'\ninit();');
+browserApp=browserApp.replace('\ninit();',()=> '\n'+fs.readFileSync(path.join(root,'src/draw-cinema.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'src/draw-ui.js'),'utf8')+'\ninit();');
 fs.writeFileSync(path.join(root,'public/app.js'),browserApp);
 fs.cpSync(path.join(old,'public/fonts'),path.join(root,'public/fonts'),{recursive:true});
 let html=fs.readFileSync(path.join(old,'public/album.html'),'utf8');
@@ -156,8 +156,12 @@ html=html.replace('</nav>','<button type="button" class="contest-nav" id="weekly
 html=html.replace('</nav>','<button type="button" class="contest-nav comment-contest-nav" id="comment-contest-nav">这期神了</button></nav>');
 html=html.replace('</nav>','<button type="button" class="contest-nav mall-nav" id="mall-nav">商城</button></nav>');
 html=html.replace('</nav>','<button type="button" class="contest-nav" id="draw-nav">抽卡</button></nav>');
+html=html.replace('</nav>','<a class="contest-nav" id="dungeon-nav" href="./game/index.html" style="text-decoration:none;display:inline-flex;align-items:center">暗黑地牢</a></nav>');
 html=html.replace('<section class="gallery-section"',()=>fs.readFileSync(path.join(root,'src/draw.html'),'utf8')+'<section class="gallery-section"');
+if(!html.includes('</body>'))throw Error('Draw cinema HTML hook changed');
+html=html.replace('</body>',()=>'\n'+fs.readFileSync(path.join(root,'src/draw-cinema.html'),'utf8')+'\n</body>');
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/draw.css'),'utf8'));
+fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/draw-cinema.css'),'utf8'));
 html=html.replace('<dialog class="lightbox"',()=>fs.readFileSync(path.join(root,'src/photo-manager.html'),'utf8')+'<dialog class="lightbox"');
 fs.appendFileSync(path.join(root,'public/editorial.css'),'\n'+fs.readFileSync(path.join(root,'src/photo-manager.css'),'utf8'));
 html=html.replace('<form id="caption-edit-form"',()=>fs.readFileSync(path.join(root,'src/admin-rarity.html'),'utf8')+'<form id="caption-edit-form"');
@@ -286,8 +290,13 @@ accounts=accounts.replace('first<{owner_hash:string;nickname:string|null}>()', '
 accounts=accounts.replace('return {device_hash:row.owner_hash,nickname:row.nickname}', 'return {device_hash:row.owner_hash,write_owner_hash:row.write_owner_hash,nickname:row.nickname}');
 accounts+='\n'+fs.readFileSync(path.join(root,'src/account-linking-accounts.ts'),'utf8');
 fs.writeFileSync(path.join(root,'src/accounts.ts'),accounts);
-fs.cpSync(path.join(root,'public'),path.join(root,'functions/class7-photo-api/public'),{recursive:true});
+require('./scripts/build-dungeon.cjs');
+// Large game media is already uploaded to static hosting. Keep the photo API zip small.
+const generatedGameMedia=path.resolve(root,'functions/class7-photo-api/public/game/assets');
+if(!generatedGameMedia.startsWith(path.resolve(root,'functions/class7-photo-api/public')+path.sep))throw Error('Generated media cleanup escaped public root');
+fs.rmSync(generatedGameMedia,{recursive:true,force:true});
+fs.cpSync(path.join(root,'public'),path.join(root,'functions/class7-photo-api/public'),{recursive:true,filter:file=>!/^game[\\/]assets(?:[\\/]|$)/.test(path.relative(path.join(root,'public'),file))});
 fs.cpSync(path.join(root,'public'),path.join(root,'hosting'),{recursive:true});
 fs.writeFileSync(path.join(root,'hosting/index.html'),'<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>高三七班照片集</title><style>body{font:16px Arial,"Microsoft YaHei",sans-serif;max-width:680px;margin:15vh auto;padding:24px;line-height:1.8;color:#111}a{color:inherit}</style><h1>高三七班照片集</h1><p>那些一起走过的日子，都在这里。</p><p><a href="https://class7-memory-d0gcpjaqu47530c54-1509361747.ap-shanghai.app.tcloudbase.com/api/">进入照片集 →</a></p></html>');
-require(require.resolve('esbuild',{paths:[root,path.join(root,'../cloudbase-tools')]})).buildSync({entryPoints:[path.join(root,'src/server.ts')],outfile:path.join(root,'functions/class7-photo-api/index.cjs'),bundle:true,platform:'node',target:'node20',format:'cjs',packages:'external'});
+require('esbuild').buildSync({entryPoints:[path.join(root,'src/server.ts')],outfile:path.join(root,'functions/class7-photo-api/index.cjs'),bundle:true,platform:'node',target:'node20',format:'cjs',packages:'external'});
 console.log('Built CloudBase test frontend and HTTP backend');

@@ -5,8 +5,8 @@ function configureAdminUpload(tier){
  fields.hidden=!adminUploadTier;updateAdminUploadUI();
 }
 function updateAdminUploadUI(){
- const field=$('#admin-upload-fields');if(!field)return;const notice=$('#upload-dialog .preview-notice');if(notice){originalUploadNotice??=notice.innerHTML;if(adminUploadTier==='classified')notice.textContent='保密级照片不会出现在照片墙和共享相册中，只在商城低概率刷新；购买后可在库存查看。';else notice.innerHTML=originalUploadNotice;}field.hidden=!adminUploadTier;$('#admin-upload-tier').disabled=app.busy;
- if(adminUploadTier){$('#admin-upload-tier').value=adminUploadTier;$('#upload-title').textContent='上传'+mallRarity(adminUploadTier).label+'卡牌';$('#admin-upload-help').textContent=adminUploadTier==='classified'?'仅管理员、当日刷到该卡的账号及收藏者可查看；购买后也不转为公开。商城初始抽取权重为 3%。':'上传后公开展示，并进入对应稀有度卡池。';if(!app.busy)$('#submit-upload').innerHTML=icon('upload')+'上传卡牌';}
+ const field=$('#admin-upload-fields');if(!field)return;const notice=$('#upload-dialog .preview-notice');if(notice){originalUploadNotice??=notice.innerHTML;if(adminUploadTier==='classified')notice.textContent='保密级照片不会出现在照片墙和共享相册中，通过商城或抽卡低概率获取；购买后可在库存查看。';else notice.innerHTML=originalUploadNotice;}field.hidden=!adminUploadTier;$('#admin-upload-tier').disabled=app.busy;
+ if(adminUploadTier){$('#admin-upload-tier').value=adminUploadTier;$('#upload-title').textContent='上传'+mallRarity(adminUploadTier).label+'卡牌';$('#admin-upload-help').textContent=adminUploadTier==='classified'?'仅管理员、当日刷到该卡的账号及收藏者可查看；购买后也不转为公开。商城初始抽取权重为 0.05%。':'上传后公开展示，并进入对应稀有度卡池。';if(!app.busy)$('#submit-upload').innerHTML=icon('upload')+'上传卡牌';}
  else{$('#upload-title').textContent='分享你的瞬间';if(!app.busy)$('#submit-upload').innerHTML=icon('upload')+'加入照片墙';}
 }
 $('#upload-dialog').addEventListener('close',()=>{if(!app.busy){adminUploadTier=null;refreshVaultStatus();}});

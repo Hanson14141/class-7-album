@@ -1,6 +1,6 @@
 -- Classified Photo Vault
 -- Defines photo_in_vault check, photo_vault_admins whitelist table,
--- 4-tier weighted draws (82/10/5/3), and exclusive vault photo acquisition.
+-- 4-tier weighted draws (95.95/3/1/0.05), and exclusive vault photo acquisition.
 
 CREATE OR REPLACE FUNCTION class7_test.photo_in_vault(p_photo text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,class7_test AS $$
@@ -20,9 +20,9 @@ ALTER TABLE class7_test.photo_rarities ADD CONSTRAINT photo_rarities_rarity_chec
 
 -- Allow current prices and preserve historical 80-point purchases
 ALTER TABLE class7_test.mall_photo_inventory DROP CONSTRAINT IF EXISTS mall_photo_inventory_price_check;
-ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN (9,10,20,30,40,80));
+ALTER TABLE class7_test.mall_photo_inventory ADD CONSTRAINT mall_photo_inventory_price_check CHECK(price IN (0,9,10,20,30,40,80));
 
--- Replace 3-pool draw with 4-pool draw (82 / 10 / 5 / 3)
+-- Replace 3-pool draw with 4-pool draw (95.95 / 3 / 1 / 0.05)
 DROP FUNCTION IF EXISTS class7_test.draw_photo_pool(text[],text[],text[],integer);
 DROP FUNCTION IF EXISTS class7_test.draw_photo_pool(text[],text[],text[]);
 
@@ -32,10 +32,10 @@ DECLARE result text[]:='{}'; item text; wc integer; we integer; wl integer; ws i
 BEGIN
  c:=COALESCE(c,'{}'); e:=COALESCE(e,'{}'); l:=COALESCE(l,'{}'); s:=COALESCE(s,'{}');
  FOR slot IN 1..LEAST(5,GREATEST(0,n)) LOOP
-  wc:=CASE WHEN cardinality(c)>0 THEN 82 ELSE 0 END;
-  we:=CASE WHEN cardinality(e)>0 THEN 10 ELSE 0 END;
-  wl:=CASE WHEN cardinality(l)>0 THEN 5 ELSE 0 END;
-  ws:=CASE WHEN cardinality(s)>0 THEN 3 ELSE 0 END;
+  wc:=CASE WHEN cardinality(c)>0 THEN 1919 ELSE 0 END;
+  we:=CASE WHEN cardinality(e)>0 THEN 60 ELSE 0 END;
+  wl:=CASE WHEN cardinality(l)>0 THEN 20 ELSE 0 END;
+  ws:=CASE WHEN cardinality(s)>0 THEN 1 ELSE 0 END;
   IF wc+we+wl+ws=0 THEN EXIT; END IF;
   roll:=random()*(wc+we+wl+ws);
   IF roll<wc THEN idx:=1+floor(random()*cardinality(c))::integer;item:=c[idx];c:=array_remove(c,item);

@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const context=vm.createContext({app:{photos:[],visible:[],view:'all',filter:''},isMine:photo=>photo.owned||photo.local});
+vm.runInContext(fs.readFileSync('src/photo-counts-ui.js','utf8'),context);
+const run=code=>vm.runInContext(code,context);
+run("acceptPhotoCounts({total:367,ownedTotal:123,uploaders:[{uploader:'我',total:123},{uploader:'同学',total:244}]},false)");
+assert.equal(run('photoTotalForView(false)'),367);assert.equal(run('photoTotalForView(true)'),123);
+run("acceptPhotoCounts({total:123,ownedTotal:123,uploaders:[{uploader:'我',total:123}]},true);adjustPhotoCounts({uploader:'我',owned:true},1)");
+assert.equal(run('photoTotalForView(false)'),368);assert.equal(run('photoTotalForView(true)'),124);assert.equal(run("photoTotalForView(true,'我')"),124);
+run("adjustPhotoCounts({uploader:'我',owned:true},-1);adjustPhotoCounts({uploader:'同学',owned:false},-1)");
+assert.equal(run('photoTotalForView(false)'),366);assert.equal(run('photoTotalForView(true)'),123);assert.equal(run("photoTotalForView(false,'同学')"),243);
+run("app.photos=[{id:'local-one',local:true,uploader:'我'}]");assert.equal(run('photoTotalForView(true)'),124);assert.equal(run('photoTotalForView(false)'),366);
+run("acceptPhotoCounts({total:370,ownedTotal:126,uploaders:[]},false)");assert.equal(run('photoTotalForView(true)'),127);
+run('resetPhotoCounts();app.photos=[]');assert.equal(run('photoTotalForView(true)'),0);
+console.log('PASS pagination-independent totals, uploads, deletions, local legacy photos and identity reset');
